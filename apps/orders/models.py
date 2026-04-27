@@ -122,6 +122,7 @@ class Order(models.Model):
     # Script content
     script_content = models.TextField(blank=True, null=True, help_text='Final approved script text')
     revision_note = models.TextField(blank=True, null=True, help_text='Customer feedback for revision')
+    internal_notes = models.TextField(blank=True, null=True, help_text='Private admin/writer notes (not visible to customer)')
 
     # Relationship questionnaire answers
     user_answers = models.JSONField(default=list, help_text='Answers to mandatory relationship questions')
@@ -195,6 +196,7 @@ class Transaction(models.Model):
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     screenshot_url = models.CharField(max_length=500)
     status = models.CharField(max_length=10, choices=TransactionStatus.choices, default=TransactionStatus.PENDING)
+    bank_transaction_id = models.CharField(max_length=100, blank=True, null=True, help_text='Bank/UPI reference ID entered by Admin')
     notes = models.TextField(blank=True, null=True, help_text='Rejection reason or admin note')
     verified_by = models.ForeignKey(
         'accounts.Admin', on_delete=models.SET_NULL, null=True, blank=True, related_name='verified_transactions'

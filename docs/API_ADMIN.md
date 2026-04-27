@@ -25,7 +25,7 @@ Returns: total orders, total revenue, pending payments, orders by status, orders
 | Query Param | Example | Description |
 |-------------|---------|-------------|
 | `status` | `?status=payment_pending` | Filter by status |
-| `search` | `?search=rahul` | Search by name, email, order ID |
+| `search` | `?search=rahul` | Search by name, email, order ID, or **Bank Txn ID** |
 | `page` | `?page=2` | Page number |
 | `page_size` | `?page_size=20` | Items per page |
 
@@ -48,9 +48,11 @@ Basic status update:
 ```json
 {
   "new_status": "under_writing",
-  "note": "Script approved. Physical writing started."
+  "note": "Script approved. Physical writing started.",
+  "internal_notes": "Writer is using ivory paper as requested."
 }
 ```
+*Note: `internal_notes` is private and not visible to customers.*
 
 When shipping (`out_for_delivery`):
 ```json
@@ -86,6 +88,11 @@ Body: `{}`
 ```
 Auto-picks the next least-loaded available writer.
 
+### Resend Status Notification
+**POST** `/admin/orders/<order_id>/resend-notification/`
+Body: `{}`
+Manually re-triggers the email for the current order status (e.g., resends the Questionnaire link).
+
 ---
 
 ## PAYMENT VERIFICATION
@@ -103,10 +110,13 @@ Auto-picks the next least-loaded available writer.
 
 ### Verify Payment
 **POST** `/admin/payments/<transaction_uuid>/verify/`
-Body: `{}`
+```json
+{ "bank_transaction_id": "SBI-TXN-12345678" }
+```
 
 Triggers:
 - Transaction status → `verified`
+- `bank_transaction_id` is saved for auditing
 - Order status → `awaiting_details`
 - Email sent to customer to fill questionnaire
 
@@ -249,18 +259,6 @@ Filter: `?category=paper`
 
 ---
 
-### Relation Categories
-**GET** `/admin/relations/`
-
-**POST** `/admin/relations/`
-```json
-{ "name": "Best Friend", "is_active": true }
-```
-
-**DELETE** `/admin/relations/<id>/`
-
----
-
 ## SITE SETTINGS
 
 ### View Settings
@@ -335,14 +333,13 @@ Filter: `?category=paper`
 ## QUESTIONNAIRE BUILDER
 
 ### List Questions
-**GET** `/admin/questions/?relation_type=Mother`
+**GET** `/admin/questions/`
 
 ### Create Question
 **POST** `/admin/questions/`
 ```json
 {
-  "relation_type": "Mother",
-  "question_text": "What is your favourite memory with your mother?",
+  "question_text": "What is your relationship with the recipient?",
   "display_order": 1,
   "is_required": true
 }

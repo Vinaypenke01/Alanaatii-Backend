@@ -27,13 +27,13 @@ logger = logging.getLogger('apps')
 # ─── Customer: Order Lifecycle ────────────────────────────────────────────────
 
 class OrderCreateView(APIView):
-    permission_classes = [AllowAny]  # Guest checkout supported
+    permission_classes = [IsAuthenticated]
 
     def post(self, request):
         serializer = OrderCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        user = request.user if request.user.is_authenticated else None
-        order = services.create_order(serializer.validated_data, user=user)
+        # Order is now strictly tied to the logged-in user
+        order = services.create_order(serializer.validated_data, user=request.user)
         return Response({
             'message': 'Order placed successfully! Payment is pending verification.',
             'order': OrderListSerializer(order).data,
@@ -207,7 +207,13 @@ class AdminOrderListView(APIView):
             qs = qs.filter(status=status_filter)
         search = request.query_params.get('search')
         if search:
-            qs = qs.filter(customer_name__icontains=search) | qs.filter(customer_email__icontains=search) | qs.filter(id__icontains=search)
+            from django.db.models import Q
+            qs = qs.filter(
+                Q(customer_name__icontains=search) | 
+                Q(customer_email__icontains=search) | 
+                Q(id__icontains=search) |
+                Q(transactions__bank_transaction_id__icontains=search)
+            ).distinct()
         paginator = LargeResultsPagination()
         page = paginator.paginate_queryset(qs, request)
         return paginator.get_paginated_response(OrderListSerializer(page, many=True).data)
@@ -235,8 +241,8 @@ class AdminOrderStatusUpdateView(APIView):
         admin = Admin.objects.get(id=request.user.id)
 
         extra_data = {}
-        for field in ['tracking_id', 'courier_name', 'est_arrival']:
-            if data.get(field):
+        for field in ['tracking_id', 'courier_name', 'est_arrival', 'internal_notes']:
+            if field in data and data[field] is not None:
                 extra_data[field] = data[field]
 
         order = services.admin_update_order_status(
@@ -266,6 +272,17 @@ class AdminReassignOrderView(APIView):
         return Response({'message': 'Order reassigned.', 'assignment_id': str(assignment.id)})
 
 
+class AdminOrderResendNotificationView(APIView):
+    """Manually re-trigger email for the current status."""
+    permission_classes = [IsAuthenticated, IsAdminUser]
+
+    def post(self, request, order_id):
+        from apps.accounts.models import Admin
+        admin = Admin.objects.get(id=request.user.id)
+        services.resend_order_notification(order_id, admin)
+        return Response({'message': 'Notification resent successfully.'})
+
+
 # ─── Admin: Payment Verification ─────────────────────────────────────────────
 
 class AdminPaymentListView(APIView):
@@ -289,8 +306,12 @@ class AdminPaymentVerifyView(APIView):
 
     def post(self, request, transaction_id):
         from apps.accounts.models import Admin
+        bank_txn_id = request.data.get('bank_transaction_id')
+        if not bank_txn_id:
+            return Response({'error': True, 'message': 'bank_transaction_id is required.'}, status=400)
+            
         admin = Admin.objects.get(id=request.user.id)
-        order = services.verify_payment(str(transaction_id), admin)
+        order = services.verify_payment(str(transaction_id), bank_txn_id, admin)
         return Response({'message': 'Payment verified.', 'order_status': order.status})
 
 

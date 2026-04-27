@@ -5,7 +5,7 @@ from .views import (
     PaymentScreenshotUploadView,
     WriterScriptSubmitView, WriterDraftView, WriterOrderListView,
     AdminOrderListView, AdminOrderDetailView, AdminOrderStatusUpdateView,
-    AdminOrderCancelView, AdminReassignOrderView,
+    AdminOrderCancelView, AdminReassignOrderView, AdminOrderResendNotificationView,
     AdminPaymentListView, AdminPaymentVerifyView, AdminPaymentRejectView,
     AdminRefundListCreateView, AdminRefundUpdateView,
     AdminAnalyticsView, CouponValidateView,
@@ -32,6 +32,7 @@ urlpatterns = [
     path('admin/orders/<str:order_id>/status/', AdminOrderStatusUpdateView.as_view(), name='admin-order-status'),
     path('admin/orders/<str:order_id>/cancel/', AdminOrderCancelView.as_view(), name='admin-order-cancel'),
     path('admin/orders/<str:order_id>/reassign/', AdminReassignOrderView.as_view(), name='admin-order-reassign'),
+    path('admin/orders/<str:order_id>/resend-notification/', AdminOrderResendNotificationView.as_view(), name='admin-order-resend-notification'),
 
     # Admin: payments
     path('admin/payments/', AdminPaymentListView.as_view(), name='admin-payment-list'),

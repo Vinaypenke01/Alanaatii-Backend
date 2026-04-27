@@ -153,19 +153,11 @@ Category values: `paper` | `box` | `gift` | `style` | `package` | `letter_theme`
 
 ---
 
-## RELATION TYPES
-
-### List Relation Categories
-**GET** `/relations/`
-Returns list like: `["Mother", "Father", "Lover / Partner", "Friend", "Sibling", "Self"]`
-
----
-
 ## QUESTIONNAIRE
 
-### Get Questions for a Relation Type
-**GET** `/questions/?relation_type=Lover / Partner`
-Returns ordered list of questions shown in the order form.
+### Get Universal Questions
+**GET** `/questions/`
+Returns the list of mandatory questions for all orders (e.g., Relationship, Occasion, Memories).
 
 ---
 
@@ -177,10 +169,11 @@ Returns: `{ master_upi_id, support_email, support_whatsapp }`
 
 ---
 
-## ORDERS (Guest / Customer)
+## ORDERS (Authenticated Only)
 
 ### Place an Order
-**POST** `/orders/`  *(No auth required — guest checkout supported)*
+**POST** `/orders/`
+*(Requires Auth: Bearer Token from Google OAuth)*
 
 **Script Only:**
 ```json

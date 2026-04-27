@@ -188,7 +188,7 @@ def create_order(data: dict, user=None) -> Order:
 
 
 @db_transaction.atomic
-def verify_payment(transaction_id: str, admin) -> Order:
+def verify_payment(transaction_id: str, bank_txn_id: str, admin) -> Order:
     """Admin verifies payment — advances order to awaiting_details or order_placed."""
     from apps.admin_ops.models import SiteSettings
 
@@ -204,8 +204,9 @@ def verify_payment(transaction_id: str, admin) -> Order:
     old_status = order.status
 
     txn.status = 'verified'
+    txn.bank_transaction_id = bank_txn_id
     txn.verified_by = admin
-    txn.save(update_fields=['status', 'verified_by', 'updated_at'])
+    txn.save(update_fields=['status', 'bank_transaction_id', 'verified_by', 'updated_at'])
 
     # Determine next status: if basic details already filled → order_placed, else awaiting_details
     if order.message_content and order.relation and order.recipient_name:
@@ -537,8 +538,14 @@ def admin_update_order_status(order_id: str, new_status: str, admin, note: str =
 
     if extra_data:
         for field, val in extra_data.items():
-            setattr(order, field, val)
-            update_fields.append(field)
+            if val is not None:
+                setattr(order, field, val)
+                if field not in update_fields:
+                    update_fields.append(field)
+
+    if note:
+        # If internal_notes is passed in extra_data, it's already set.
+        pass
 
     # Auto-set timestamps
     if new_status == OrderStatus.OUT_FOR_DELIVERY:
@@ -594,3 +601,24 @@ def process_refund(order_id: str, amount: Decimal, reason: str, admin) -> Refund
     log_audit(str(admin.id), 'admin', 'REFUND_CREATED', 'ORDER', order.id,
               {'amount': str(amount), 'reason': reason})
     return refund
+
+
+def resend_order_notification(order_id: str, admin):
+    """Manually re-trigger the email based on current order status."""
+    order = get_order_or_404(order_id)
+    
+    if order.status == OrderStatus.AWAITING_DETAILS:
+        link = generate_secure_link(order.id, 'form_fill', order.customer_email)
+        send_details_reminder_email(order, link)
+    elif order.status == OrderStatus.SCRIPT_READY:
+        send_script_ready_email(order)
+    elif order.status == OrderStatus.OUT_FOR_DELIVERY:
+        send_out_for_delivery_email(order)
+    elif order.status == OrderStatus.DELIVERED:
+        send_delivered_email(order)
+    elif order.status == OrderStatus.PAYMENT_VERIFIED:
+        send_payment_verified_email(order)
+    elif order.status == OrderStatus.PAYMENT_REJECTED:
+        send_payment_rejected_email(order)
+    
+    log_audit(str(admin.id), 'admin', 'NOTIFICATION_RESENT', 'ORDER', order.id, {'status': order.status})

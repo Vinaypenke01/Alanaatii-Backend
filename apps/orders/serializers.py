@@ -108,8 +108,9 @@ class RevisionRequestSerializer(serializers.Serializer):
 
 
 class OrderStatusUpdateSerializer(serializers.Serializer):
-    new_status = serializers.ChoiceField(choices=[s.value for s in []])
+    new_status = serializers.ChoiceField(choices=[])
     note = serializers.CharField(required=False, allow_blank=True)
+    internal_notes = serializers.CharField(required=False, allow_blank=True)
     tracking_id = serializers.CharField(required=False, allow_blank=True)
     courier_name = serializers.CharField(required=False, allow_blank=True)
     est_arrival = serializers.DateField(required=False, allow_null=True)
