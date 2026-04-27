@@ -47,6 +47,22 @@ Expected: `System check identified no issues (0 silenced).`
 python manage.py migrate
 ```
 
+## 💎 Premium Features
+
+- **Hybrid Authentication Engine**: 
+  - Toggle between **Traditional Email/Password** and **Google OAuth 2.0** via `.env`.
+  - Automatic user provisioning upon Google login.
+- **Universal Questionnaire Engine**: 
+  - Simplified order flow with a unified questionnaire for all relationships.
+  - Dynamic question management via Admin Panel.
+- **Forced Authentication Flow**: 
+  - All orders are strictly tied to authenticated users, ensuring 100% order traceability.
+- **Advanced Payment Auditing**: 
+  - Admin-mandated `bank_transaction_id` mapping for manual UPI/Bank verification.
+  - Private **Internal Notes** for staff-only communication on orders.
+- **Notification Recovery**: 
+  - Manual "Resend Notification" tool for Admins to help customers who missed emails.
+
 ## 6. Create First Admin Account
 
 ```bash

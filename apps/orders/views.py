@@ -112,16 +112,12 @@ class PaymentScreenshotUploadView(APIView):
         if not file:
             return Response({'error': True, 'message': 'No file uploaded.'}, status=400)
 
-        # Save file
-        upload_dir = os.path.join(settings.MEDIA_ROOT, 'payment_screenshots')
-        os.makedirs(upload_dir, exist_ok=True)
-        filename = f'{order_id}_{timezone.now().strftime("%Y%m%d%H%M%S")}_{file.name}'
-        filepath = os.path.join(upload_dir, filename)
-        with open(filepath, 'wb+') as dest:
-            for chunk in file.chunks():
-                dest.write(chunk)
+        # Save file to Cloudinary (via default_storage)
+        from django.core.files.storage import default_storage
+        filename = f'payment_screenshots/{order_id}_{timezone.now().strftime("%Y%m%d%H%M%S")}_{file.name}'
+        saved_path = default_storage.save(filename, file)
+        file_url = default_storage.url(saved_path)
 
-        file_url = f'{settings.MEDIA_URL}payment_screenshots/{filename}'
         order.payment_ss = file_url
         order.status = OrderStatus.PAYMENT_PENDING
         order.save(update_fields=['payment_ss', 'status'])

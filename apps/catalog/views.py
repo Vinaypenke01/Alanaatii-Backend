@@ -42,14 +42,10 @@ class AdminCatalogListCreateView(APIView):
         data = request.data.dict() if hasattr(request.data, 'dict') else dict(request.data)
         image_file = request.FILES.get('image_url')
         if image_file:
-            upload_dir = os.path.join(settings.MEDIA_ROOT, 'catalog')
-            os.makedirs(upload_dir, exist_ok=True)
-            filename = f'{timezone.now().strftime("%Y%m%d%H%M%S")}_{image_file.name}'
-            filepath = os.path.join(upload_dir, filename)
-            with open(filepath, 'wb+') as dest:
-                for chunk in image_file.chunks():
-                    dest.write(chunk)
-            data['image_url'] = f'catalog/{filename}'
+            from django.core.files.storage import default_storage
+            filename = f'catalog/{timezone.now().strftime("%Y%m%d%H%M%S")}_{image_file.name}'
+            saved_path = default_storage.save(filename, image_file)
+            data['image_url'] = saved_path
         ser = CatalogItemCreateSerializer(data=data)
         ser.is_valid(raise_exception=True)
         item = services.create_catalog_item(ser.validated_data, admin)

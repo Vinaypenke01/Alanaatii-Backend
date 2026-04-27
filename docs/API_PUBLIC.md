@@ -167,11 +167,10 @@ Returns the list of mandatory questions for all orders (e.g., Relationship, Occa
 **GET** `/settings/`
 Returns: `{ master_upi_id, support_email, support_whatsapp }`
 
----
+## ORDERS (Authentication Required)
 
-## ORDERS (Authenticated Only)
-
-### Place an Order
+⚠️ **All orders now require a Bearer Token.** Guest checkout is disabled.
+Ensure you have called the Auth endpoints first.
 **POST** `/orders/`
 *(Requires Auth: Bearer Token from Google OAuth)*
 

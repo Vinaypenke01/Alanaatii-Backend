@@ -41,8 +41,3 @@ class CatalogItem(models.Model):
 
     def __str__(self):
         return f'[{self.category}] {self.title} – ₹{self.price}'
-
-
-
-    def __str__(self):
-        return f'[{self.category}] {self.title} – ₹{self.price}'
