@@ -43,19 +43,6 @@ class CatalogItem(models.Model):
         return f'[{self.category}] {self.title} – ₹{self.price}'
 
 
-class RelationCategory(models.Model):
-    name = models.CharField(max_length=50, unique=True)
-    is_active = models.BooleanField(default=True)
-    created_by = models.ForeignKey(
-        'accounts.Admin', on_delete=models.SET_NULL, null=True, blank=True, related_name='relation_categories'
-    )
-    created_at = models.DateTimeField(default=timezone.now)
-
-    class Meta:
-        db_table = 'relation_categories'
-        verbose_name = 'Relation Category'
-        verbose_name_plural = 'Relation Categories'
-        ordering = ['name']
 
     def __str__(self):
-        return self.name
+        return f'[{self.category}] {self.title} – ₹{self.price}'

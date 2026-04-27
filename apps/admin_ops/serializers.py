@@ -19,7 +19,7 @@ class PincodeRuleSerializer(serializers.ModelSerializer):
 class MandatoryQuestionSerializer(serializers.ModelSerializer):
     class Meta:
         model = MandatoryQuestion
-        fields = ['id', 'relation_type', 'question_text', 'display_order', 'is_required', 'created_at']
+        fields = ['id', 'question_text', 'display_order', 'is_required', 'created_at']
         read_only_fields = ['id', 'created_at']
 
 

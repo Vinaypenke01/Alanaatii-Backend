@@ -84,12 +84,10 @@ def validate_coupon(code: str, order_total: Decimal) -> Decimal:
     return min(discount, order_total)
 
 
-def get_questions_for_relation(relation_type: str) -> list:
-    """Return ordered questions for a given relation type."""
+def get_questions_for_relation(relation_type: str = None) -> list:
+    """Return ordered universal questions for all orders."""
     from .models import MandatoryQuestion
-    questions = MandatoryQuestion.objects.filter(
-        relation_type__iexact=relation_type
-    ).order_by('display_order')
+    questions = MandatoryQuestion.objects.all().order_by('display_order')
     return list(questions.values('id', 'question_text', 'is_required', 'display_order'))
 
 

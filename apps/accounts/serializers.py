@@ -6,6 +6,7 @@ from rest_framework import serializers
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.settings import api_settings as jwt_settings
 from django.contrib.auth import authenticate
+from django.utils import timezone
 from .models import User, Writer, Admin, UserAddress
 
 
@@ -39,6 +40,72 @@ def get_tokens_for_user(user_obj, role: str) -> dict:
         'access': str(token.access_token),
     }
 
+
+
+# ─── Google OAuth ─────────────────────────────────────────────────────────────
+
+class GoogleLoginSerializer(serializers.Serializer):
+    """
+    Accepts a Google `id_token` from the frontend (obtained via Google Sign-In).
+    Verifies it against Google's public keys, then either:
+      - Logs in the existing user, or
+      - Auto-creates a new account (no password set — can never log in with password).
+    Returns the same JWT token structure as a normal login.
+    """
+    id_token = serializers.CharField(write_only=True)
+
+    def validate(self, data):
+        from django.conf import settings
+        from google.oauth2 import id_token as google_id_token
+        from google.auth.transport import requests as google_requests
+
+        raw_token = data.get('id_token')
+        client_id = settings.GOOGLE_CLIENT_ID
+
+        try:
+            id_info = google_id_token.verify_oauth2_token(
+                raw_token,
+                google_requests.Request(),
+                client_id,
+            )
+        except ValueError as e:
+            raise serializers.ValidationError(f'Invalid Google token: {str(e)}')
+
+        # Google guarantees these are present when verification passes
+        google_sub = id_info['sub']          # Unique stable Google user ID
+        email      = id_info['email'].lower()
+        full_name  = id_info.get('name', email.split('@')[0])
+
+        # Look up by google_id first (fastest, handles email changes)
+        user = User.objects.filter(google_id=google_sub).first()
+
+        if user is None:
+            # Fall back to email match — user might have registered with password before
+            user = User.objects.filter(email=email).first()
+            if user:
+                # Link the Google account to the existing email account
+                user.google_id = google_sub
+                user.auth_provider = 'google'
+                user.save(update_fields=['google_id', 'auth_provider'])
+            else:
+                # Brand new user — create account silently, no password needed
+                user = User.objects.create(
+                    email=email,
+                    full_name=full_name,
+                    google_id=google_sub,
+                    auth_provider='google',
+                )
+                user.set_unusable_password()
+                user.save()
+
+        if not user.is_active:
+            raise serializers.ValidationError('This account has been deactivated.')
+
+        data['user'] = user
+        data['is_new'] = user.created_at is not None and (
+            (timezone.now() - user.created_at).total_seconds() < 10
+        )
+        return data
 
 
 # ─── User (Customer) ──────────────────────────────────────────────────────────

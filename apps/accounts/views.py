@@ -15,6 +15,7 @@ from .serializers import (
     UserRegisterSerializer, UserProfileSerializer, UserAddressSerializer,
     WriterSerializer, WriterCreateSerializer, WriterUpdateSerializer, WriterProfileSerializer,
     AdminSerializer, AdminCreateSerializer,
+    GoogleLoginSerializer,
     get_tokens_for_user,
 )
 from . import services
@@ -28,6 +29,15 @@ class UserRegisterView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
+        from django.conf import settings
+        if not settings.AUTH_MODE_PASSWORD:
+            return Response({
+                'error': True,
+                'code': 'AUTH_MODE_DISABLED',
+                'message': 'Password registration is disabled. Please use Google Sign-In.',
+                'google_endpoint': '/api/v1/auth/user/google/',
+            }, status=status.HTTP_403_FORBIDDEN)
+
         result = services.register_user(request.data)
         user = result['user']
         return Response({
@@ -41,6 +51,15 @@ class UserLoginView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
+        from django.conf import settings
+        if not settings.AUTH_MODE_PASSWORD:
+            return Response({
+                'error': True,
+                'code': 'AUTH_MODE_DISABLED',
+                'message': 'Password login is disabled. Please use Google Sign-In.',
+                'google_endpoint': '/api/v1/auth/user/google/',
+            }, status=status.HTTP_403_FORBIDDEN)
+
         result = services.login_user(
             request.data.get('email', ''),
             request.data.get('password', ''),
@@ -50,6 +69,43 @@ class UserLoginView(APIView):
             'tokens': result['tokens'],
             'user': UserProfileSerializer(result['user']).data,
         })
+
+
+class GoogleLoginView(APIView):
+    """
+    POST /api/v1/auth/user/google/
+    Body: { "id_token": "<google_id_token_from_frontend>" }
+
+    The frontend uses the Google Sign-In SDK to get an id_token after the user
+    clicks 'Continue with Google'. That token is sent here, verified server-side
+    against Google's public keys, and your platform JWT is returned.
+    """
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        from django.conf import settings
+        if settings.AUTH_MODE_PASSWORD:
+            return Response({
+                'error': True,
+                'code': 'AUTH_MODE_DISABLED',
+                'message': 'Google OAuth is disabled. Please use email and password to log in.',
+                'login_endpoint': '/api/v1/auth/user/login/',
+            }, status=status.HTTP_403_FORBIDDEN)
+
+        serializer = GoogleLoginSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        user = serializer.validated_data['user']
+        is_new = serializer.validated_data.get('is_new', False)
+        tokens = get_tokens_for_user(user, role='user')
+
+        logger.info(f'Google OAuth {"register" if is_new else "login"}: {user.email}')
+        return Response({
+            'message': 'Google login successful.',
+            'is_new_account': is_new,
+            'tokens': tokens,
+            'user': UserProfileSerializer(user).data,
+        }, status=status.HTTP_201_CREATED if is_new else status.HTTP_200_OK)
 
 
 class UserProfileView(generics.RetrieveUpdateAPIView):

@@ -41,7 +41,6 @@ class PincodeRule(models.Model):
 
 
 class MandatoryQuestion(models.Model):
-    relation_type = models.CharField(max_length=50, help_text='Must match RelationCategory name')
     question_text = models.TextField()
     display_order = models.IntegerField(default=0)
     is_required = models.BooleanField(default=True)
@@ -52,10 +51,10 @@ class MandatoryQuestion(models.Model):
 
     class Meta:
         db_table = 'mandatory_questions'
-        ordering = ['relation_type', 'display_order']
+        ordering = ['display_order']
 
     def __str__(self):
-        return f'[{self.relation_type}] {self.question_text[:60]}'
+        return self.question_text[:60]
 
 
 class DiscountType(models.TextChoices):

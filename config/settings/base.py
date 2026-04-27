@@ -119,7 +119,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # ─── DRF ─────────────────────────────────────────────────────────────────────
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
-        'rest_framework_simplejwt.authentication.JWTAuthentication',
+        'apps.accounts.authentication.RoleBasedJWTAuthentication',
     ),
     'DEFAULT_PERMISSION_CLASSES': (
         'rest_framework.permissions.IsAuthenticated',
@@ -186,6 +186,13 @@ DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default='noreply@alanaatii.com
 
 # ─── Frontend URL (for email links) ──────────────────────────────────────────
 FRONTEND_URL = config('FRONTEND_URL', default='http://localhost:5173')
+
+# ─── Google OAuth ─────────────────────────────────────────────────────────────
+GOOGLE_CLIENT_ID = config('GOOGLE_CLIENT_ID', default='')
+
+# True  → Traditional email+password flow is active
+# False → Only Google OAuth is accepted for customers
+AUTH_MODE_PASSWORD = config('AUTH_MODE_PASSWORD', default=True, cast=bool)
 
 # ─── DRF Spectacular (OpenAPI) ───────────────────────────────────────────────
 SPECTACULAR_SETTINGS = {

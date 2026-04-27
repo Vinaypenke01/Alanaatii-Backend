@@ -8,8 +8,8 @@ from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
 
 from utils.permissions import IsAdminUser
-from .models import CatalogItem, RelationCategory
-from .serializers import CatalogItemSerializer, CatalogItemCreateSerializer, RelationCategorySerializer
+from .models import CatalogItem
+from .serializers import CatalogItemSerializer, CatalogItemCreateSerializer
 from . import services
 
 
@@ -71,34 +71,3 @@ class AdminCatalogDetailView(APIView):
         admin = Admin.objects.get(id=request.user.id)
         services.delete_catalog_item(str(pk), admin)
         return Response({'message': 'Item deleted.'}, status=status.HTTP_204_NO_CONTENT)
-
-
-class RelationCategoryListView(APIView):
-    permission_classes = [AllowAny]
-
-    def get(self, request):
-        qs = RelationCategory.objects.filter(is_active=True).order_by('name')
-        return Response(RelationCategorySerializer(qs, many=True).data)
-
-
-class AdminRelationCategoryView(APIView):
-    permission_classes = [IsAuthenticated, IsAdminUser]
-
-    def get(self, request):
-        return Response(RelationCategorySerializer(RelationCategory.objects.all().order_by('name'), many=True).data)
-
-    def post(self, request):
-        from apps.accounts.models import Admin
-        admin = Admin.objects.get(id=request.user.id)
-        ser = RelationCategorySerializer(data=request.data)
-        ser.is_valid(raise_exception=True)
-        cat = RelationCategory.objects.create(created_by=admin, **ser.validated_data)
-        return Response(RelationCategorySerializer(cat).data, status=status.HTTP_201_CREATED)
-
-    def delete(self, request, pk):
-        try:
-            cat = RelationCategory.objects.get(pk=pk)
-            cat.delete()
-        except RelationCategory.DoesNotExist:
-            pass
-        return Response({'message': 'Deleted.'}, status=status.HTTP_204_NO_CONTENT)

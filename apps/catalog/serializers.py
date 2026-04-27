@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import CatalogItem, RelationCategory
+from .models import CatalogItem
 
 
 class CatalogItemSerializer(serializers.ModelSerializer):
@@ -12,11 +12,4 @@ class CatalogItemSerializer(serializers.ModelSerializer):
 class CatalogItemCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = CatalogItem
-        fields = ['category', 'title', 'price', 'description', 'image_url', 'is_active']
-
-
-class RelationCategorySerializer(serializers.ModelSerializer):
-    class Meta:
-        model = RelationCategory
-        fields = ['id', 'name', 'is_active', 'created_at']
-        read_only_fields = ['id', 'created_at']
+        exclude = ('created_by', 'created_at', 'updated_at')

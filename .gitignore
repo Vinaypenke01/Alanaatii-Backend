@@ -53,3 +53,13 @@ htmlcov/
 .mypy_cache/
 .dmypy.json
 dmypy.json
+
+# Alanaatii Specific
+docs/TRAFFIC_REPORT.html
+docs/report_summary.md
+logs/*.log
+media/payment_screenshots/
+media/catalog/
+venv/
+*.pyc
+__pycache__/

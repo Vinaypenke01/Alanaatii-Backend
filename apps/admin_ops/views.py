@@ -98,10 +98,7 @@ class MandatoryQuestionView(APIView):
     permission_classes = [IsAuthenticated, IsAdminUser]
 
     def get(self, request):
-        relation = request.query_params.get('relation_type')
-        qs = MandatoryQuestion.objects.all().order_by('relation_type', 'display_order')
-        if relation:
-            qs = qs.filter(relation_type__iexact=relation)
+        qs = MandatoryQuestion.objects.all().order_by('display_order')
         return Response(MandatoryQuestionSerializer(qs, many=True).data)
 
     def post(self, request):

@@ -55,7 +55,11 @@ class User(AbstractBaseUser, PermissionsMixin):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     full_name = models.CharField(max_length=100)
     email = models.EmailField(max_length=150, unique=True)
-    phone_wa = models.CharField(max_length=20, help_text='WhatsApp number for alerts')
+    phone_wa = models.CharField(max_length=20, blank=True, default='', help_text='WhatsApp number for alerts')
+
+    # OAuth fields
+    auth_provider = models.CharField(max_length=20, default='password', help_text='password | google')
+    google_id = models.CharField(max_length=100, blank=True, null=True, unique=True, db_index=True)
 
     # Optional profile fields
     address_def = models.TextField(blank=True, null=True, help_text='Default shipping address')
