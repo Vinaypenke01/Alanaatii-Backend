@@ -18,6 +18,7 @@ class OrderCreateSerializer(serializers.Serializer):
     message_content = serializers.CharField(required=False, allow_blank=True)
     special_notes = serializers.CharField(required=False, allow_blank=True)
     express_script = serializers.BooleanField(required=False, default=False)
+    custom_letter_length = serializers.CharField(max_length=50, required=False, allow_blank=True, allow_null=True)
     address = serializers.CharField(required=False, allow_blank=True)
     city = serializers.CharField(max_length=100, required=False, allow_blank=True)
     pincode = serializers.CharField(max_length=6, required=False, allow_blank=True)
@@ -39,7 +40,7 @@ class OrderListSerializer(serializers.ModelSerializer):
         model = Order
         fields = [
             'id', 'product_type', 'status', 'customer_name', 'customer_email',
-            'total_amount', 'delivery_date', 'created_at',
+            'total_amount', 'delivery_date', 'custom_letter_length', 'created_at',
         ]
 
 

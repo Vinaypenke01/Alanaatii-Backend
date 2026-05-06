@@ -94,6 +94,7 @@ class Order(models.Model):
     message_content = models.TextField(blank=True, null=True)
     special_notes = models.TextField(blank=True, null=True)
     express_script = models.BooleanField(default=False)
+    custom_letter_length = models.CharField(max_length=50, blank=True, null=True, help_text='Custom length/height if required by letter type')
 
     # Delivery details
     address = models.TextField(blank=True, null=True)
