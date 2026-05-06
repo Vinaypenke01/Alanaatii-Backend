@@ -24,6 +24,15 @@ class CatalogItem(models.Model):
     description = models.TextField(blank=True, null=True)
     image_url = models.ImageField(upload_to='catalog/', blank=True, null=True)
     is_active = models.BooleanField(default=True)
+    
+    # Constraints & Compatibility (primarily for letters)
+    requires_custom_length = models.BooleanField(default=False, help_text="If true, UI prompts for custom length/height")
+    fits_all_boxes = models.BooleanField(default=True, help_text="If true, fits in any box. If false, checks compatible_boxes")
+    compatible_boxes = models.ManyToManyField(
+        'self', blank=True, symmetrical=False, 
+        limit_choices_to={'category': CatalogCategory.BOX},
+        help_text="Boxes this item fits into, if fits_all_boxes is False"
+    )
     created_by = models.ForeignKey(
         'accounts.Admin', on_delete=models.SET_NULL, null=True, blank=True, related_name='catalog_items'
     )

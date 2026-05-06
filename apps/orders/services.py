@@ -144,6 +144,7 @@ def create_order(data: dict, user=None) -> Order:
         pincode=data.get('pincode'),
         delivery_date=data.get('delivery_date'),
         paper_quantity=data.get('paper_quantity', 1),
+        custom_letter_length=data.get('custom_letter_length'),
         coupon=coupon_obj,
         user=user,
         **{k: v for k, v in breakdown.items()},

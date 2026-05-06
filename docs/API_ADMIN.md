@@ -239,6 +239,9 @@ Filter: `?category=paper`
 | `description` | string | ❌ | Optional description |
 | `is_active` | boolean | ❌ | Default: `true` |
 | `image_url` | file | ❌ | Upload image |
+| `requires_custom_length`| boolean| ❌ | Default: `false`. If true, frontend asks user for custom length/height. |
+| `fits_all_boxes` | boolean | ❌ | Default: `true`. If false, specify `compatible_boxes`. |
+| `compatible_boxes` | array | ❌ | Array of box UUIDs this item fits into. |
 
 ---
 
@@ -248,7 +251,9 @@ Filter: `?category=paper`
 {
   "title": "Premium Ivory Paper",
   "price": 175.00,
-  "is_active": true
+  "is_active": true,
+  "fits_all_boxes": true,
+  "compatible_boxes": []
 }
 ```
 

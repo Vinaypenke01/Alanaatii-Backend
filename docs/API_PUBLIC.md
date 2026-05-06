@@ -209,6 +209,7 @@ Returns: `{ master_upi_id, support_email, support_whatsapp }`
   "delivery_date": "2025-06-15",
   "letter_theme": "<uuid>",
   "text_style": "<uuid>",
+  "custom_letter_length": "6 feet",
   "coupon_code": ""
 }
 ```
@@ -230,6 +231,7 @@ Returns: `{ master_upi_id, support_email, support_whatsapp }`
   "delivery_date": "2025-06-15",
   "letter_theme": "<uuid>",
   "text_style": "<uuid>",
+  "custom_letter_length": "6 feet",
   "box": "<uuid>",
   "gift": "<uuid>",
   "coupon_code": "SAVE20"
