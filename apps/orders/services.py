@@ -209,11 +209,11 @@ def verify_payment(transaction_id: str, bank_txn_id: str, admin) -> Order:
     txn.verified_by = admin
     txn.save(update_fields=['status', 'bank_transaction_id', 'verified_by', 'updated_at'])
 
-    # Determine next status: if basic details already filled → order_placed, else awaiting_details
-    if order.message_content and order.relation and order.recipient_name:
-        new_status = OrderStatus.ORDER_PLACED
-    else:
+    # Determine next status: if mandatory questionnaire answers missing → awaiting_details
+    if not order.user_answers:
         new_status = OrderStatus.AWAITING_DETAILS
+    else:
+        new_status = OrderStatus.ORDER_PLACED
 
     order.status = new_status
     order.save(update_fields=['status'])

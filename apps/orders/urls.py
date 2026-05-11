@@ -1,9 +1,9 @@
 from django.urls import path
 from .views import (
-    OrderCreateView, UserOrderListView, UserOrderDetailView,
+    OrderCreateView, UserOrderListView, UserScriptReviewListView, UserOrderDetailView,
     QuestionnaireSubmitView, ScriptApprovalView, UserCancelOrderView,
     PaymentScreenshotUploadView,
-    WriterScriptSubmitView, WriterDraftView, WriterOrderListView,
+    WriterScriptSubmitView, WriterDraftView, WriterOrderListView, WriterOrderDetailView,
     AdminOrderListView, AdminOrderDetailView, AdminOrderStatusUpdateView,
     AdminOrderCancelView, AdminReassignOrderView, AdminOrderResendNotificationView,
     AdminPaymentListView, AdminPaymentVerifyView, AdminPaymentRejectView,
@@ -15,6 +15,7 @@ urlpatterns = [
     # Customer: orders
     path('orders/', OrderCreateView.as_view(), name='order-create'),
     path('orders/my/', UserOrderListView.as_view(), name='user-order-list'),
+    path('orders/scripts-to-review/', UserScriptReviewListView.as_view(), name='user-scripts-review-list'),
     path('orders/<str:order_id>/', UserOrderDetailView.as_view(), name='user-order-detail'),
     path('orders/<str:order_id>/questionnaire/', QuestionnaireSubmitView.as_view(), name='order-questionnaire'),
     path('orders/<str:order_id>/script-action/', ScriptApprovalView.as_view(), name='order-script-action'),
@@ -23,6 +24,7 @@ urlpatterns = [
 
     # Writer: script
     path('writer/orders/', WriterOrderListView.as_view(), name='writer-order-list'),
+    path('writer/orders/<str:order_id>/', WriterOrderDetailView.as_view(), name='writer-order-detail'),
     path('writer/orders/<str:order_id>/submit-script/', WriterScriptSubmitView.as_view(), name='writer-submit-script'),
     path('writer/orders/<str:order_id>/draft/', WriterDraftView.as_view(), name='writer-draft'),
 

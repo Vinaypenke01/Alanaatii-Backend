@@ -44,6 +44,7 @@ class MandatoryQuestion(models.Model):
     question_text = models.TextField()
     display_order = models.IntegerField(default=0)
     is_required = models.BooleanField(default=True)
+    is_active = models.BooleanField(default=True)
     created_by = models.ForeignKey(
         'accounts.Admin', on_delete=models.SET_NULL, null=True, blank=True, related_name='mandatory_questions'
     )

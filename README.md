@@ -72,16 +72,11 @@ python manage.py shell
 Then in the shell:
 ```python
 from apps.accounts.models import Admin
-admin = Admin()
-admin.full_name = 'Super Admin'
-admin.email = 'admin@alanaatii.com'
-admin.role = 'super_admin'
-admin.is_active = True
-admin.is_staff = True
+admin = Admin(full_name='Super Admin', email='admin@alanaatii.com', role='super_admin', is_active=True, is_staff=True)
 admin.set_password('Admin@1234')
 admin.save()
-print('Admin created!')
-exit()
+print('Admin created')
+
 ```
 
 ## 7. Start Development Server

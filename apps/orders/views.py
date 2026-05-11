@@ -50,6 +50,19 @@ class UserOrderListView(APIView):
         return paginator.get_paginated_response(OrderListSerializer(page, many=True).data)
 
 
+class UserScriptReviewListView(APIView):
+    """Fetch only orders that have a script ready for customer review."""
+    permission_classes = [IsAuthenticated, IsCustomerUser]
+
+    def get(self, request):
+        from .models import OrderStatus
+        orders = Order.objects.filter(
+            user=request.user,
+            status__in=[OrderStatus.CUSTOMER_REVIEW, OrderStatus.REVISION_REQUESTED, OrderStatus.SCRIPT_SUBMITTED]
+        ).order_by('-created_at')
+        return Response(OrderListSerializer(orders, many=True).data)
+
+
 class UserOrderDetailView(APIView):
     permission_classes = [IsAuthenticated, IsCustomerUser]
 
@@ -122,8 +135,13 @@ class PaymentScreenshotUploadView(APIView):
         order.status = OrderStatus.PAYMENT_PENDING
         order.save(update_fields=['payment_ss', 'status'])
 
-        # Create new transaction
-        Transaction.objects.create(order=order, amount=order.total_amount, screenshot_url=file_url)
+        # Update pending transaction or create new one
+        txn = order.transactions.filter(status='pending').order_by('-created_at').first()
+        if txn:
+            txn.screenshot_url = file_url
+            txn.save(update_fields=['screenshot_url'])
+        else:
+            Transaction.objects.create(order=order, amount=order.total_amount, screenshot_url=file_url)
 
         return Response({'message': 'Payment screenshot uploaded.', 'url': file_url})
 
@@ -189,6 +207,23 @@ class WriterOrderListView(APIView):
             for a in assignments
         ]
         return Response(data)
+
+
+class WriterOrderDetailView(APIView):
+    """Writer sees full details of an order assigned to them."""
+    permission_classes = [IsAuthenticated, IsWriterUser]
+
+    def get(self, request, order_id):
+        from apps.writers.models import WriterAssignment
+        # Verify this writer is assigned to this order
+        try:
+            assignment = WriterAssignment.objects.get(
+                order_id=order_id, writer=request.user, status='accepted'
+            )
+        except WriterAssignment.DoesNotExist:
+            return Response({'error': True, 'message': 'Access denied or assignment not found.'}, status=403)
+        
+        return Response(OrderDetailSerializer(assignment.order).data)
 
 
 # ─── Admin: Order Management ──────────────────────────────────────────────────

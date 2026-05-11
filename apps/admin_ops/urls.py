@@ -1,6 +1,6 @@
 from django.urls import path
 from .views import (
-    PublicSiteSettingsView, AdminSiteSettingsView,
+    PublicSiteSettingsView, AdminSiteSettingsView, PricingOverviewView,
     PricingDayRuleView, PincodeRuleView, MandatoryQuestionView, PublicQuestionsView,
     CouponView, SupportMessageCreateView, AdminSupportMessageView,
 )
@@ -8,6 +8,7 @@ from .views import (
 urlpatterns = [
     path('settings/', PublicSiteSettingsView.as_view(), name='public-settings'),
     path('admin/settings/', AdminSiteSettingsView.as_view(), name='admin-settings'),
+    path('admin/pricing/', PricingOverviewView.as_view(), name='admin-pricing'),
     path('admin/pricing-rules/', PricingDayRuleView.as_view(), name='admin-pricing-rules'),
     path('admin/pricing-rules/<int:pk>/', PricingDayRuleView.as_view(), name='admin-pricing-rule-detail'),
     path('admin/pincode-rules/', PincodeRuleView.as_view(), name='admin-pincode-rules'),

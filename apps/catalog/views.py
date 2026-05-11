@@ -22,7 +22,21 @@ class CatalogListView(APIView):
             qs = CatalogItem.objects.filter(category=category, is_active=True).order_by('title')
         else:
             qs = CatalogItem.objects.filter(is_active=True).order_by('category', 'title')
-        return Response(CatalogItemSerializer(qs, many=True).data)
+        return Response(CatalogItemSerializer(qs, many=True, context={'request': request}).data)
+
+
+class AdminCatalogSummaryView(APIView):
+    permission_classes = [IsAuthenticated, IsAdminUser]
+
+    def get(self, request):
+        from .models import CatalogCategory
+        summary = {}
+        for code, label in CatalogCategory.choices:
+            summary[code] = {
+                'label': label,
+                'count': CatalogItem.objects.filter(category=code).count()
+            }
+        return Response(summary)
 
 
 class AdminCatalogListCreateView(APIView):
@@ -33,34 +47,47 @@ class AdminCatalogListCreateView(APIView):
         qs = CatalogItem.objects.all().order_by('category', 'title')
         if category:
             qs = qs.filter(category=category)
-        return Response(CatalogItemSerializer(qs, many=True).data)
+        return Response(CatalogItemSerializer(qs, many=True, context={'request': request}).data)
 
     def post(self, request):
         from apps.accounts.models import Admin
         admin = Admin.objects.get(id=request.user.id)
-        # Handle image upload
-        data = request.data.dict() if hasattr(request.data, 'dict') else dict(request.data)
-        image_file = request.FILES.get('image_url')
-        if image_file:
-            from django.core.files.storage import default_storage
-            filename = f'catalog/{timezone.now().strftime("%Y%m%d%H%M%S")}_{image_file.name}'
-            saved_path = default_storage.save(filename, image_file)
-            data['image_url'] = saved_path
+        
+        # Make a mutable copy of request.data if it's a QueryDict
+        data = request.data.copy() if hasattr(request.data, 'copy') else request.data
+        
+        # Map 'image' from frontend to 'image_url' field in DB
+        if 'image' in request.FILES:
+            data['image_url'] = request.FILES['image']
+            
         ser = CatalogItemCreateSerializer(data=data)
         ser.is_valid(raise_exception=True)
         item = services.create_catalog_item(ser.validated_data, admin)
-        return Response(CatalogItemSerializer(item).data, status=status.HTTP_201_CREATED)
+        return Response(CatalogItemSerializer(item, context={'request': request}).data, status=status.HTTP_201_CREATED)
 
 
 class AdminCatalogDetailView(APIView):
     permission_classes = [IsAuthenticated, IsAdminUser]
 
-    def put(self, request, pk):
+    def patch(self, request, pk):
         from apps.accounts.models import Admin
         admin = Admin.objects.get(id=request.user.id)
-        data = request.data.dict() if hasattr(request.data, 'dict') else dict(request.data)
-        item = services.update_catalog_item(str(pk), data, admin)
-        return Response(CatalogItemSerializer(item).data)
+        
+        data = request.data.copy() if hasattr(request.data, 'copy') else request.data
+        
+        # Map 'image' from frontend to 'image_url' field in DB
+        if 'image' in request.FILES:
+            data['image_url'] = request.FILES['image']
+
+        item_obj = CatalogItem.objects.get(id=pk)
+        ser = CatalogItemCreateSerializer(item_obj, data=data, partial=True)
+        ser.is_valid(raise_exception=True)
+
+        item = services.update_catalog_item(str(pk), ser.validated_data, admin)
+        return Response(CatalogItemSerializer(item, context={'request': request}).data)
+
+    def put(self, request, pk):
+        return self.patch(request, pk)
 
     def delete(self, request, pk):
         from apps.accounts.models import Admin

@@ -36,12 +36,30 @@ class OrderCreateSerializer(serializers.Serializer):
 
 
 class OrderListSerializer(serializers.ModelSerializer):
+    script_content = serializers.SerializerMethodField()
+    letter_theme_name = serializers.CharField(source='letter_theme.name', read_only=True)
+    text_style_name = serializers.CharField(source='text_style.name', read_only=True)
+    paper_name = serializers.CharField(source='paper.name', read_only=True)
+    box_name = serializers.CharField(source='box.name', read_only=True)
+    gift_name = serializers.CharField(source='gift.name', read_only=True)
+    script_package_name = serializers.CharField(source='script_package.name', read_only=True)
+
     class Meta:
         model = Order
         fields = [
-            'id', 'product_type', 'status', 'customer_name', 'customer_email',
-            'total_amount', 'delivery_date', 'custom_letter_length', 'created_at',
+            'id', 'product_type', 'status', 'customer_name', 'customer_phone', 'customer_email',
+            'recipient_name', 'recipient_phone', 'primary_contact', 'relation',
+            'message_content', 'special_notes', 'address', 'city', 'pincode',
+            'delivery_date', 'total_amount', 'base_price', 'style_price', 'box_price',
+            'gift_price', 'delivery_price', 'express_price', 'discount_amt',
+            'user_answers', 'script_content', 'created_at',
+            'letter_theme_name', 'text_style_name', 'paper_name', 'box_name', 'gift_name', 'script_package_name',
         ]
+
+    def get_script_content(self, obj):
+        # Return the latest script version content if it exists
+        latest = obj.script_versions.order_by('-version_num').first()
+        return latest.content if latest else None
 
 
 class OrderDetailSerializer(serializers.ModelSerializer):

@@ -59,11 +59,23 @@ def send_order_placed_email(order):
 def send_payment_verified_email(order):
     """Notify customer that payment is verified."""
     subject = f'Payment Verified – #{order.id} | Alanaatii'
+    
+    # Dynamic body based on whether details are needed
+    if order.status == 'awaiting_details':
+        action_text = (
+            f'Next Step: Please fill in the required details for your letter so our writer can begin crafting it.\n\n'
+            f'Fill Details Here: {FRONTEND_URL}/dashboard/details/{order.id}'
+        )
+    else:
+        action_text = (
+            f'Next Step: Our professional writers will now start crafting your letter. '
+            f'We will notify you once the script is ready for your review.'
+        )
+
     body = (
         f'Hi {order.customer_name},\n\n'
         f'Great news! Your payment for Order #{order.id} has been verified.\n\n'
-        f'Next Step: Please fill in the required details for your letter so our writer can begin crafting it.\n\n'
-        f'Fill Details Here: {FRONTEND_URL}/dashboard/details/{order.id}\n\n'
+        f'{action_text}\n\n'
         f'With love,\nTeam Alanaatii'
     )
     send_email(order.customer_email, subject, body)
