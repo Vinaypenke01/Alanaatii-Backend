@@ -47,6 +47,7 @@ INSTALLED_APPS = ['cloudinary_storage', 'cloudinary'] + DJANGO_APPS + THIRD_PART
 
 # ─── Middleware ───────────────────────────────────────────────────────────────
 MIDDLEWARE = [
+    'utils.middleware.RequestTimeMiddleware',  # Track request time
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
@@ -86,7 +87,7 @@ DATABASES = {
     'default': dj_database_url.config(
         default=config('DATABASE_URL'),
         conn_max_age=600,
-        conn_health_checks=True,
+        conn_health_checks=False,
     )
 }
 
@@ -245,6 +246,11 @@ LOGGING = {
             'filename': BASE_DIR / 'logs' / 'alanaatii.log',
             'formatter': 'verbose',
         },
+        'performance_file': {
+            'class': 'logging.FileHandler',
+            'filename': BASE_DIR / 'logs' / 'performance.log',
+            'formatter': 'simple',
+        },
     },
     'root': {
         'handlers': ['console'],
@@ -259,6 +265,11 @@ LOGGING = {
         'apps': {
             'handlers': ['console', 'file'],
             'level': 'DEBUG',
+            'propagate': False,
+        },
+        'performance': {
+            'handlers': ['performance_file'],
+            'level': 'INFO',
             'propagate': False,
         },
     },

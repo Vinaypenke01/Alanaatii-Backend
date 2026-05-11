@@ -209,8 +209,12 @@ def verify_payment(transaction_id: str, bank_txn_id: str, admin) -> Order:
     txn.verified_by = admin
     txn.save(update_fields=['status', 'bank_transaction_id', 'verified_by', 'updated_at'])
 
-    # Determine next status: if mandatory questionnaire answers missing → awaiting_details
-    if not order.user_answers:
+    # Determine next status
+    # letterPaper never needs a questionnaire -> ORDER_PLACED
+    # others: if answers missing -> AWAITING_DETAILS, else -> ORDER_PLACED
+    if order.product_type == 'letterPaper':
+        new_status = OrderStatus.ORDER_PLACED
+    elif not order.user_answers:
         new_status = OrderStatus.AWAITING_DETAILS
     else:
         new_status = OrderStatus.ORDER_PLACED
@@ -239,8 +243,8 @@ def verify_payment(transaction_id: str, bank_txn_id: str, admin) -> Order:
         order_id=order.id,
     )
 
-    # Auto-assign if order_placed and setting enabled
-    if new_status == OrderStatus.ORDER_PLACED:
+    # Auto-assign if order_placed and setting enabled (only for script-based products)
+    if new_status == OrderStatus.ORDER_PLACED and order.product_type != 'letterPaper':
         settings = SiteSettings.get()
         if settings.auto_assign_writers:
             try:

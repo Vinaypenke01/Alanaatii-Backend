@@ -36,40 +36,54 @@ class OrderCreateSerializer(serializers.Serializer):
 
 
 class OrderListSerializer(serializers.ModelSerializer):
-    script_content = serializers.SerializerMethodField()
-    letter_theme_name = serializers.CharField(source='letter_theme.name', read_only=True)
-    text_style_name = serializers.CharField(source='text_style.name', read_only=True)
-    paper_name = serializers.CharField(source='paper.name', read_only=True)
-    box_name = serializers.CharField(source='box.name', read_only=True)
-    gift_name = serializers.CharField(source='gift.name', read_only=True)
-    script_package_name = serializers.CharField(source='script_package.name', read_only=True)
+    paper_name = serializers.SerializerMethodField()
+    letter_theme_name = serializers.SerializerMethodField()
+    text_style_name = serializers.SerializerMethodField()
+    box_name = serializers.SerializerMethodField()
+    gift_name = serializers.SerializerMethodField()
+    script_package_name = serializers.SerializerMethodField()
 
     class Meta:
         model = Order
         fields = [
             'id', 'product_type', 'status', 'customer_name', 'customer_phone', 'customer_email',
             'recipient_name', 'recipient_phone', 'primary_contact', 'relation',
-            'message_content', 'special_notes', 'address', 'city', 'pincode',
-            'delivery_date', 'total_amount', 'base_price', 'style_price', 'box_price',
-            'gift_price', 'delivery_price', 'express_price', 'discount_amt',
-            'user_answers', 'script_content', 'created_at',
-            'letter_theme_name', 'text_style_name', 'paper_name', 'box_name', 'gift_name', 'script_package_name',
+            'total_amount', 'base_price', 'style_price', 'box_price', 'gift_price', 
+            'delivery_price', 'express_price', 'discount_amt', 'pincode', 'paper',
+            'paper_quantity', 'delivery_date', 'created_at', 'user_answers',
+            'letter_theme_name', 'text_style_name', 'paper_name', 'box_name', 'gift_name', 'script_package_name'
         ]
 
-    def get_script_content(self, obj):
-        # Return the latest script version content if it exists
-        latest = obj.script_versions.order_by('-version_num').first()
-        return latest.content if latest else None
+    def get_paper_name(self, obj): return obj.paper.title if obj.paper else None
+    def get_letter_theme_name(self, obj): return obj.letter_theme.title if obj.letter_theme else None
+    def get_text_style_name(self, obj): return obj.text_style.title if obj.text_style else None
+    def get_box_name(self, obj): return obj.box.title if obj.box else None
+    def get_gift_name(self, obj): return obj.gift.title if obj.gift else None
+    def get_script_package_name(self, obj): return obj.script_package.title if obj.script_package else None
 
 
 class OrderDetailSerializer(serializers.ModelSerializer):
     status_history = serializers.SerializerMethodField()
     script_versions = serializers.SerializerMethodField()
     latest_transaction = serializers.SerializerMethodField()
+    # Display names for catalog FKs
+    paper_name = serializers.SerializerMethodField()
+    letter_theme_name = serializers.SerializerMethodField()
+    text_style_name = serializers.SerializerMethodField()
+    box_name = serializers.SerializerMethodField()
+    gift_name = serializers.SerializerMethodField()
+    script_package_name = serializers.SerializerMethodField()
 
     class Meta:
         model = Order
         fields = '__all__'
+
+    def get_paper_name(self, obj): return obj.paper.title if obj.paper else None
+    def get_letter_theme_name(self, obj): return obj.letter_theme.title if obj.letter_theme else None
+    def get_text_style_name(self, obj): return obj.text_style.title if obj.text_style else None
+    def get_box_name(self, obj): return obj.box.title if obj.box else None
+    def get_gift_name(self, obj): return obj.gift.title if obj.gift else None
+    def get_script_package_name(self, obj): return obj.script_package.title if obj.script_package else None
 
     def get_status_history(self, obj):
         history = obj.status_history.order_by('-created_at')[:10]

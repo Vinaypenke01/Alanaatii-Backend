@@ -35,7 +35,8 @@ class SiteSettingsSerializer(serializers.ModelSerializer):
     class Meta:
         model = SiteSettings
         fields = ['master_upi_id', 'support_email', 'support_whatsapp',
-                  'maintenance_mode', 'auto_assign_writers', 'default_delivery_fee', 'updated_at']
+                  'maintenance_mode', 'auto_assign_writers', 'default_delivery_fee', 
+                  'min_delivery_lead_days', 'updated_at']
         read_only_fields = ['updated_at']
 
 
@@ -43,7 +44,7 @@ class PublicSiteSettingsSerializer(serializers.ModelSerializer):
     """Subset exposed to the public — no sensitive toggles."""
     class Meta:
         model = SiteSettings
-        fields = ['master_upi_id', 'support_email', 'support_whatsapp']
+        fields = ['master_upi_id', 'support_email', 'support_whatsapp', 'min_delivery_lead_days', 'maintenance_mode']
 
 
 class SupportMessageSerializer(serializers.ModelSerializer):

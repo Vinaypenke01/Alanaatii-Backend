@@ -95,6 +95,7 @@ class SiteSettings(models.Model):
     maintenance_mode = models.BooleanField(default=False)
     auto_assign_writers = models.BooleanField(default=True)
     default_delivery_fee = models.DecimalField(max_digits=10, decimal_places=2, default=100)
+    min_delivery_lead_days = models.IntegerField(default=7)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
@@ -112,6 +113,7 @@ class SiteSettings(models.Model):
             'support_email': 'support@alanaatii.com',
             'support_whatsapp': '+91-0000000000',
             'default_delivery_fee': 100,
+            'min_delivery_lead_days': 7,
         })
         return obj
 

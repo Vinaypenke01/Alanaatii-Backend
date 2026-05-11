@@ -1,6 +1,6 @@
 """
 Email sending utility for Alanaatii Backend.
-All emails are sent synchronously (no Celery).
+Emails are sent asynchronously using background threads to prevent API delays.
 """
 import logging
 from django.core.mail import send_mail, EmailMultiAlternatives
@@ -12,9 +12,23 @@ logger = logging.getLogger('apps')
 FRONTEND_URL = settings.FRONTEND_URL
 
 
+import threading
+
 def send_email(to: str, subject: str, text_body: str, html_body: str = None):
     """
-    Send a single email. Logs errors without raising to prevent order flow breakage.
+    Send a single email in the background.
+    """
+    thread = threading.Thread(
+        target=_send_email_sync,
+        args=(to, subject, text_body, html_body)
+    )
+    thread.start()
+
+
+def _send_email_sync(to: str, subject: str, text_body: str, html_body: str = None):
+    """
+    The actual synchronous email sending logic.
+    Logs errors without raising to prevent order flow breakage.
     """
     try:
         if html_body:
@@ -39,15 +53,44 @@ def send_email(to: str, subject: str, text_body: str, html_body: str = None):
         logger.error(f'Failed to send email to {to}: {e}')
 
 
+# ─── Helper ───────────────────────────────────────────────────────────────────
+
+def _get_product_summary(order):
+    """Generates a text summary of the product configuration."""
+    summary = []
+    if order.product_type == 'letterPaper':
+        if order.paper:
+            summary.append(f"Paper Selection: {order.paper.title}")
+        summary.append(f"Sheet Quantity: {order.paper_quantity}")
+    else:
+        if order.letter_theme:
+            summary.append(f"Letter Theme: {order.letter_theme.title}")
+        if order.text_style:
+            summary.append(f"Calligraphy Style: {order.text_style.title}")
+        if order.box:
+            summary.append(f"Luxury Box: {order.box.title}")
+        if order.gift:
+            summary.append(f"Gift Add-on: {order.gift.title}")
+    
+    if not summary:
+        return "Standard Configuration"
+    return "\n".join([f"• {item}" for item in summary])
+
+
 # ─── Customer Emails ──────────────────────────────────────────────────────────
 
 def send_order_placed_email(order):
     """Notify customer that their order was received and payment is pending verification."""
+    product_details = _get_product_summary(order)
     subject = f'Order Received – #{order.id} | Alanaatii'
     body = (
         f'Hi {order.customer_name},\n\n'
         f'Thank you for placing your order with Alanaatii!\n\n'
-        f'Your Order ID: {order.id}\n'
+        f'Your Order Details:\n'
+        f'-------------------\n'
+        f'Order ID: {order.id}\n'
+        f'Product: {order.get_product_type_display()}\n'
+        f'{product_details}\n'
         f'Total Amount: ₹{order.total_amount}\n\n'
         f'Our admin team will verify your payment and update you shortly.\n'
         f'You can track your order at: {FRONTEND_URL}/dashboard/orders/{order.id}\n\n'
@@ -58,23 +101,35 @@ def send_order_placed_email(order):
 
 def send_payment_verified_email(order):
     """Notify customer that payment is verified."""
-    subject = f'Payment Verified – #{order.id} | Alanaatii'
+    product_details = _get_product_summary(order)
     
-    # Dynamic body based on whether details are needed
-    if order.status == 'awaiting_details':
+    if order.product_type == 'letterPaper':
+        subject = f'Order Confirmed – #{order.id} | Alanaatii'
         action_text = (
-            f'Next Step: Please fill in the required details for your letter so our writer can begin crafting it.\n\n'
-            f'Fill Details Here: {FRONTEND_URL}/dashboard/details/{order.id}'
+            f'Next Step: Our professional artists will now begin processing your order. '
+            f'We will notify you once your creation is ready for dispatch.\n\n'
+            f'We would love to hear your experience with Alanaatii so far:\n'
+            f'{FRONTEND_URL}/submit-review?order={order.id}'
         )
     else:
-        action_text = (
-            f'Next Step: Our professional writers will now start crafting your letter. '
-            f'We will notify you once the script is ready for your review.'
-        )
+        subject = f'Payment Verified – #{order.id} | Alanaatii'
+        # Dynamic body based on whether details are needed
+        if order.status == 'awaiting_details':
+            action_text = (
+                f'Next Step: Please fill in the required details for your letter so our writer can begin crafting it.\n\n'
+                f'Fill Details Here: {FRONTEND_URL}/dashboard/details/{order.id}'
+            )
+        else:
+            action_text = (
+                f'Next Step: Our professional artists will now begin processing your order. '
+                f'We will notify you once your creation is ready.'
+            )
 
     body = (
         f'Hi {order.customer_name},\n\n'
         f'Great news! Your payment for Order #{order.id} has been verified.\n\n'
+        f'Order Summary:\n'
+        f'{product_details}\n\n'
         f'{action_text}\n\n'
         f'With love,\nTeam Alanaatii'
     )
