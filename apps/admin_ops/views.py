@@ -21,42 +21,52 @@ class PricingOverviewView(APIView):
     def get(self, request):
         day_rules = PricingDayRule.objects.all().order_by('days_limit')
         pincode_rules = PincodeRule.objects.all().order_by('zip_prefix')
+        settings = SiteSettings.get()
         
         return Response({
             'day_rules': PricingDayRuleSerializer(day_rules, many=True).data,
-            'pincode_rules': PincodeRuleSerializer(pincode_rules, many=True).data
+            'pincode_rules': PincodeRuleSerializer(pincode_rules, many=True).data,
+            'default_delivery_fee': settings.default_delivery_fee
         })
 
     def put(self, request):
-        # This is a bulk update view as expected by the frontend
         day_rules_data = request.data.get('day_rules', [])
         pincode_rules_data = request.data.get('pincode_rules', [])
+        default_delivery_fee = request.data.get('default_delivery_fee')
         
         from apps.accounts.models import Admin
         admin = Admin.objects.get(id=request.user.id)
         
+        # 0. Update Default Delivery Fee
+        if default_delivery_fee is not None:
+            settings = SiteSettings.get()
+            settings.default_delivery_fee = default_delivery_fee
+            settings.save()
+
         # 1. Update Day Rules
+        PricingDayRule.objects.all().delete()
         for item in day_rules_data:
-            # Map frontend 'days'/'charge' to backend fields
             days_limit = item.get('days_limit') or item.get('days')
             extra_charge = item.get('extra_charge') or item.get('charge')
             
             if days_limit is not None and extra_charge is not None:
-                PricingDayRule.objects.update_or_create(
+                PricingDayRule.objects.create(
                     days_limit=days_limit,
-                    defaults={'extra_charge': extra_charge, 'created_by': admin}
+                    extra_charge=extra_charge,
+                    created_by=admin
                 )
             
         # 2. Update Pincode Rules
+        PincodeRule.objects.all().delete()
         for item in pincode_rules_data:
-            # Map frontend 'prefix'/'charge' to backend fields
             zip_prefix = item.get('zip_prefix') or item.get('prefix')
             delivery_fee = item.get('delivery_fee') or item.get('charge')
             
             if zip_prefix is not None and delivery_fee is not None:
-                PincodeRule.objects.update_or_create(
+                PincodeRule.objects.create(
                     zip_prefix=zip_prefix,
-                    defaults={'delivery_fee': delivery_fee, 'created_by': admin}
+                    delivery_fee=delivery_fee,
+                    created_by=admin
                 )
             
         return self.get(request)
@@ -66,7 +76,14 @@ class PublicSiteSettingsView(APIView):
     permission_classes = [AllowAny]
 
     def get(self, request):
-        return Response(PublicSiteSettingsSerializer(SiteSettings.get()).data)
+        settings = SiteSettings.get()
+        pincode_rules = PincodeRule.objects.all().order_by('zip_prefix')
+        day_rules = PricingDayRule.objects.all().order_by('days_limit')
+        
+        data = PublicSiteSettingsSerializer(settings).data
+        data['pincode_rules'] = PincodeRuleSerializer(pincode_rules, many=True).data
+        data['day_rules'] = PricingDayRuleSerializer(day_rules, many=True).data
+        return Response(data)
 
 
 class AdminSiteSettingsView(APIView):

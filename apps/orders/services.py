@@ -3,6 +3,7 @@ Orders services — core business logic for the order lifecycle.
 """
 import logging
 from decimal import Decimal
+from django.conf import settings
 from django.utils import timezone
 from django.db import transaction as db_transaction
 from rest_framework.exceptions import ValidationError, NotFound, PermissionDenied
@@ -130,9 +131,11 @@ def create_order(data: dict, user=None) -> Order:
     order = Order(
         product_type=data['product_type'],
         customer_name=data['customer_name'],
+        customer_country_code=data.get('customer_country_code', '+91'),
         customer_phone=data['customer_phone'],
         customer_email=data['customer_email'],
         recipient_name=data.get('recipient_name'),
+        recipient_country_code=data.get('recipient_country_code', '+91'),
         recipient_phone=data.get('recipient_phone'),
         primary_contact=data.get('primary_contact'),
         relation=data.get('relation'),
@@ -170,8 +173,8 @@ def create_order(data: dict, user=None) -> Order:
     # Notify customer and admin
     try:
         send_order_placed_email(order)
-        settings = SiteSettings.get()
-        send_admin_new_order_email(settings.support_email, order)
+        admin_email = getattr(settings, 'ADMIN_NOTIFICATION_EMAIL', 'support@alanaatii.com')
+        send_admin_new_order_email(admin_email, order)
     except Exception as e:
         logger.error(f'Email failed for new order {order.id}: {e}')
 
@@ -489,9 +492,9 @@ def approve_script(order_id: str, user) -> Order:
     order.save(update_fields=['status', 'approved_at', 'script_content'])
     _record_status_change(order, old_status, OrderStatus.APPROVED, user.id, 'user', 'Customer approved script')
 
-    settings = SiteSettings.get()
     try:
-        send_admin_script_approved_email(settings.support_email, order)
+        admin_email = getattr(settings, 'ADMIN_NOTIFICATION_EMAIL', 'support@alanaatii.com')
+        send_admin_script_approved_email(admin_email, order)
     except Exception as e:
         logger.error(f'Script approved email failed for {order_id}: {e}')
 

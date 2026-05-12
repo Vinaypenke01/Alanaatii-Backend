@@ -3,20 +3,21 @@ Email sending utility for Alanaatii Backend.
 Emails are sent asynchronously using background threads to prevent API delays.
 """
 import logging
-from django.core.mail import send_mail, EmailMultiAlternatives
+import threading
+import resend
 from django.conf import settings
-from django.template.loader import render_to_string
 
 logger = logging.getLogger('apps')
+
+# Configure Resend
+resend.api_key = settings.RESEND_API_KEY
 
 FRONTEND_URL = settings.FRONTEND_URL
 
 
-import threading
-
 def send_email(to: str, subject: str, text_body: str, html_body: str = None):
     """
-    Send a single email in the background.
+    Send a single email in the background via Resend API.
     """
     thread = threading.Thread(
         target=_send_email_sync,
@@ -27,30 +28,24 @@ def send_email(to: str, subject: str, text_body: str, html_body: str = None):
 
 def _send_email_sync(to: str, subject: str, text_body: str, html_body: str = None):
     """
-    The actual synchronous email sending logic.
-    Logs errors without raising to prevent order flow breakage.
+    Synchronous email sending via Resend SDK.
     """
     try:
+        params = {
+            "from": settings.DEFAULT_FROM_EMAIL,
+            "to": to,
+            "subject": subject,
+            "text": text_body,
+        }
         if html_body:
-            msg = EmailMultiAlternatives(
-                subject=subject,
-                body=text_body,
-                from_email=settings.DEFAULT_FROM_EMAIL,
-                to=[to],
-            )
-            msg.attach_alternative(html_body, "text/html")
-            msg.send()
-        else:
-            send_mail(
-                subject=subject,
-                message=text_body,
-                from_email=settings.DEFAULT_FROM_EMAIL,
-                recipient_list=[to],
-                fail_silently=False,
-            )
-        logger.info(f'Email sent to {to}: {subject}')
+            params["html"] = html_body
+            
+        r = resend.Emails.send(params)
+        logger.info(f'Email sent via Resend to {to}: {subject} | ID: {r.get("id")}')
     except Exception as e:
-        logger.error(f'Failed to send email to {to}: {e}')
+        # Log full error for debugging
+        logger.error(f'Resend API Error for {to}: {str(e)}')
+        print(f'❌ Resend Error: {str(e)}')
 
 
 # ─── Helper ───────────────────────────────────────────────────────────────────

@@ -44,7 +44,8 @@ class PublicSiteSettingsSerializer(serializers.ModelSerializer):
     """Subset exposed to the public — no sensitive toggles."""
     class Meta:
         model = SiteSettings
-        fields = ['master_upi_id', 'support_email', 'support_whatsapp', 'min_delivery_lead_days', 'maintenance_mode']
+        fields = ['master_upi_id', 'support_email', 'support_whatsapp', 
+                  'min_delivery_lead_days', 'maintenance_mode', 'default_delivery_fee']
 
 
 class SupportMessageSerializer(serializers.ModelSerializer):

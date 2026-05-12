@@ -18,10 +18,22 @@ class CatalogListView(APIView):
 
     def get(self, request):
         category = request.query_params.get('category')
+        compatible_with = request.query_params.get('compatible_with')
+        
+        qs = CatalogItem.objects.filter(is_active=True)
+        
         if category:
-            qs = CatalogItem.objects.filter(category=category, is_active=True).order_by('title')
-        else:
-            qs = CatalogItem.objects.filter(is_active=True).order_by('category', 'title')
+            qs = qs.filter(category=category)
+            
+        if compatible_with:
+            try:
+                parent_item = CatalogItem.objects.get(id=compatible_with)
+                if not parent_item.fits_all_boxes:
+                    qs = qs.filter(id__in=parent_item.compatible_boxes.all())
+            except CatalogItem.DoesNotExist:
+                pass
+                
+        qs = qs.order_by('category', 'title')
         return Response(CatalogItemSerializer(qs, many=True, context={'request': request}).data)
 
 

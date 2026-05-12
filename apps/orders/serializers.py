@@ -9,9 +9,11 @@ class OrderCreateSerializer(serializers.Serializer):
     """Validates incoming order creation payload from the frontend."""
     product_type = serializers.ChoiceField(choices=['script', 'letterPaper', 'letter', 'letterBox', 'letterBoxGift'])
     customer_name = serializers.CharField(max_length=100)
+    customer_country_code = serializers.CharField(max_length=10, required=False, default='+91')
     customer_phone = serializers.CharField(max_length=20)
     customer_email = serializers.EmailField()
     recipient_name = serializers.CharField(max_length=100, required=False, allow_blank=True)
+    recipient_country_code = serializers.CharField(max_length=10, required=False, default='+91', allow_blank=True)
     recipient_phone = serializers.CharField(max_length=20, required=False, allow_blank=True)
     primary_contact = serializers.ChoiceField(choices=['sender', 'recipient'], required=False, allow_null=True)
     relation = serializers.CharField(max_length=50, required=False, allow_blank=True)
@@ -46,8 +48,8 @@ class OrderListSerializer(serializers.ModelSerializer):
     class Meta:
         model = Order
         fields = [
-            'id', 'product_type', 'status', 'customer_name', 'customer_phone', 'customer_email',
-            'recipient_name', 'recipient_phone', 'primary_contact', 'relation',
+            'id', 'product_type', 'status', 'customer_name', 'customer_country_code', 'customer_phone', 'customer_email',
+            'recipient_name', 'recipient_country_code', 'recipient_phone', 'primary_contact', 'relation',
             'total_amount', 'base_price', 'style_price', 'box_price', 'gift_price', 
             'delivery_price', 'express_price', 'discount_amt', 'pincode', 'paper',
             'paper_quantity', 'delivery_date', 'created_at', 'user_answers',

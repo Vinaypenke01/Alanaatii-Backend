@@ -125,6 +125,10 @@ class PaymentScreenshotUploadView(APIView):
         if not file:
             return Response({'error': True, 'message': 'No file uploaded.'}, status=400)
 
+        # Validate file size (max 5MB)
+        if file.size > 5 * 1024 * 1024:
+            return Response({'error': True, 'message': 'File size too large. Maximum is 5MB.'}, status=400)
+
         # Save file to Cloudinary (via default_storage)
         from django.core.files.storage import default_storage
         filename = f'payment_screenshots/{order_id}_{timezone.now().strftime("%Y%m%d%H%M%S")}_{file.name}'

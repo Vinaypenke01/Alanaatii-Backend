@@ -81,11 +81,13 @@ class Order(models.Model):
 
     # Sender details
     customer_name = models.CharField(max_length=100)
+    customer_country_code = models.CharField(max_length=10, default='+91')
     customer_phone = models.CharField(max_length=20)
     customer_email = models.EmailField(max_length=150)
 
     # Recipient details
     recipient_name = models.CharField(max_length=100, blank=True, null=True)
+    recipient_country_code = models.CharField(max_length=10, default='+91', blank=True, null=True)
     recipient_phone = models.CharField(max_length=20, blank=True, null=True)
     primary_contact = models.CharField(max_length=10, choices=PrimaryContact.choices, blank=True, null=True)
 
