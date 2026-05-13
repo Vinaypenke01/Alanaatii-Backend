@@ -162,8 +162,8 @@ REST_FRAMEWORK = {
         'rest_framework.throttling.UserRateThrottle',
     ],
     'DEFAULT_THROTTLE_RATES': {
-        'anon': '200/day',
-        'user': '2000/day',
+        'anon': '60/minute',
+        'user': '300/minute',
     },
     'EXCEPTION_HANDLER': 'utils.exceptions.custom_exception_handler',
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
