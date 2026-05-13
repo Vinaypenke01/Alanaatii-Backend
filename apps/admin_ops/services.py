@@ -2,30 +2,40 @@
 Admin ops services — pricing engine helpers, coupon validation, settings.
 """
 import logging
+import cloudinary.api
 from decimal import Decimal
 from django.utils import timezone
+from django.db import transaction as db_transaction
 from rest_framework.exceptions import ValidationError
 
 logger = logging.getLogger('apps')
 
 
 def get_pincode_fee(pincode: str) -> Decimal:
-    """Look up delivery fee by first 3 digits of pincode."""
+    """
+    Look up delivery fee by pincode prefix.
+    Fetches all rules and finds the longest matching prefix.
+    """
     from .models import PincodeRule, SiteSettings
-    if not pincode or len(pincode) < 3:
+    if not pincode:
         return SiteSettings.get().default_delivery_fee
 
-    prefix = pincode[:3]
-    try:
-        rule = PincodeRule.objects.get(zip_prefix=prefix)
-        return rule.delivery_fee
-    except PincodeRule.DoesNotExist:
-        # Try first 2 digits
-        try:
-            rule = PincodeRule.objects.get(zip_prefix=pincode[:2])
+    pincode = str(pincode).strip().replace(" ", "")
+    logger.info(f"Checking delivery fee for pincode: '{pincode}'")
+
+    rules = list(PincodeRule.objects.all())
+    # Sort rules by prefix length descending to match most specific first
+    rules.sort(key=lambda r: len(r.zip_prefix.strip()), reverse=True)
+
+    for rule in rules:
+        clean_prefix = rule.zip_prefix.strip().replace(" ", "")
+        if pincode.startswith(clean_prefix):
+            logger.info(f"Found match for prefix '{clean_prefix}': {rule.delivery_fee}")
             return rule.delivery_fee
-        except PincodeRule.DoesNotExist:
-            return SiteSettings.get().default_delivery_fee
+
+    default_fee = SiteSettings.get().default_delivery_fee
+    logger.info(f"No specific match found for '{pincode}'. Falling back to default: {default_fee}")
+    return default_fee
 
 
 def get_early_fee(delivery_date) -> Decimal:
@@ -95,3 +105,33 @@ def get_site_settings():
     """Cached singleton site settings fetch."""
     from .models import SiteSettings
     return SiteSettings.get()
+
+
+@db_transaction.atomic
+def wipe_all_orders_data():
+    """
+    DANGEROUS: Deletes all orders and their associated media.
+    1. Deletes payment_screenshots folder content from Cloudinary.
+    2. Deletes all Order records (cascades to Transactions, History, etc).
+    """
+    from apps.orders.models import Order
+    
+    logger.warning("FACTORY RESET INITIATED: Wiping all order data.")
+    
+    # 1. Cloudinary Cleanup
+    try:
+        # Delete all resources in the payment_screenshots prefix
+        # Note: This only deletes images. If there are other file types, 
+        # they might need separate calls or resource_type='raw'.
+        cloudinary.api.delete_resources_by_prefix('payment_screenshots/')
+        logger.info("Cloudinary assets in 'payment_screenshots/' deleted.")
+    except Exception as e:
+        logger.error(f"Cloudinary wipe failed: {e}")
+        # We continue even if Cloudinary fails, to ensure DB is cleared
+    
+    # 2. Database Cleanup
+    order_count = Order.objects.count()
+    Order.objects.all().delete()
+    
+    logger.warning(f"FACTORY RESET COMPLETE: {order_count} orders deleted from DB.")
+    return order_count

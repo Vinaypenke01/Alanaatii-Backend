@@ -32,20 +32,43 @@ class CouponSerializer(serializers.ModelSerializer):
 
 
 class SiteSettingsSerializer(serializers.ModelSerializer):
+    pincode_rules = serializers.SerializerMethodField()
+    day_rules = serializers.SerializerMethodField()
+
     class Meta:
         model = SiteSettings
-        fields = ['master_upi_id', 'support_email', 'support_whatsapp',
-                  'maintenance_mode', 'auto_assign_writers', 'default_delivery_fee', 
-                  'min_delivery_lead_days', 'updated_at']
+        fields = [
+            'master_upi_id', 'support_email', 'support_whatsapp',
+            'maintenance_mode', 'auto_assign_writers', 'default_delivery_fee', 
+            'min_delivery_lead_days', 'master_qr_code', 'updated_at', 'pincode_rules', 'day_rules'
+        ]
         read_only_fields = ['updated_at']
+
+    def get_pincode_rules(self, obj):
+        return PincodeRuleSerializer(PincodeRule.objects.all(), many=True).data
+
+    def get_day_rules(self, obj):
+        return PricingDayRuleSerializer(PricingDayRule.objects.all(), many=True).data
 
 
 class PublicSiteSettingsSerializer(serializers.ModelSerializer):
-    """Subset exposed to the public — no sensitive toggles."""
+    """Subset exposed to the public — includes pricing rules for frontend calculation."""
+    pincode_rules = serializers.SerializerMethodField()
+    day_rules = serializers.SerializerMethodField()
+
     class Meta:
         model = SiteSettings
-        fields = ['master_upi_id', 'support_email', 'support_whatsapp', 
-                  'min_delivery_lead_days', 'maintenance_mode', 'default_delivery_fee']
+        fields = [
+            'master_upi_id', 'support_email', 'support_whatsapp', 
+            'min_delivery_lead_days', 'maintenance_mode', 
+            'default_delivery_fee', 'master_qr_code', 'pincode_rules', 'day_rules'
+        ]
+
+    def get_pincode_rules(self, obj):
+        return PincodeRuleSerializer(PincodeRule.objects.all(), many=True).data
+
+    def get_day_rules(self, obj):
+        return PricingDayRuleSerializer(PricingDayRule.objects.all(), many=True).data
 
 
 class SupportMessageSerializer(serializers.ModelSerializer):

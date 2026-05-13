@@ -51,7 +51,7 @@ class OrderListSerializer(serializers.ModelSerializer):
             'id', 'product_type', 'status', 'customer_name', 'customer_country_code', 'customer_phone', 'customer_email',
             'recipient_name', 'recipient_country_code', 'recipient_phone', 'primary_contact', 'relation',
             'total_amount', 'base_price', 'style_price', 'box_price', 'gift_price', 
-            'delivery_price', 'express_price', 'discount_amt', 'pincode', 'paper',
+            'delivery_price', 'express_price', 'pincode_fee', 'early_fee', 'discount_amt', 'pincode', 'paper',
             'paper_quantity', 'delivery_date', 'created_at', 'user_answers',
             'letter_theme_name', 'text_style_name', 'paper_name', 'box_name', 'gift_name', 'script_package_name'
         ]
@@ -75,6 +75,13 @@ class OrderDetailSerializer(serializers.ModelSerializer):
     box_name = serializers.SerializerMethodField()
     gift_name = serializers.SerializerMethodField()
     script_package_name = serializers.SerializerMethodField()
+    # Images for catalog FKs
+    paper_image = serializers.SerializerMethodField()
+    letter_theme_image = serializers.SerializerMethodField()
+    text_style_image = serializers.SerializerMethodField()
+    box_image = serializers.SerializerMethodField()
+    gift_image = serializers.SerializerMethodField()
+    script_package_image = serializers.SerializerMethodField()
 
     class Meta:
         model = Order
@@ -86,6 +93,13 @@ class OrderDetailSerializer(serializers.ModelSerializer):
     def get_box_name(self, obj): return obj.box.title if obj.box else None
     def get_gift_name(self, obj): return obj.gift.title if obj.gift else None
     def get_script_package_name(self, obj): return obj.script_package.title if obj.script_package else None
+
+    def get_paper_image(self, obj): return obj.paper.image_url.url if obj.paper and obj.paper.image_url else None
+    def get_letter_theme_image(self, obj): return obj.letter_theme.image_url.url if obj.letter_theme and obj.letter_theme.image_url else None
+    def get_text_style_image(self, obj): return obj.text_style.image_url.url if obj.text_style and obj.text_style.image_url else None
+    def get_box_image(self, obj): return obj.box.image_url.url if obj.box and obj.box.image_url else None
+    def get_gift_image(self, obj): return obj.gift.image_url.url if obj.gift and obj.gift.image_url else None
+    def get_script_package_image(self, obj): return obj.script_package.image_url.url if obj.script_package and obj.script_package.image_url else None
 
     def get_status_history(self, obj):
         history = obj.status_history.order_by('-created_at')[:10]

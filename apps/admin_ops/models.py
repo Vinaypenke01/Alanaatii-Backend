@@ -96,6 +96,7 @@ class SiteSettings(models.Model):
     auto_assign_writers = models.BooleanField(default=True)
     default_delivery_fee = models.DecimalField(max_digits=10, decimal_places=2, default=100)
     min_delivery_lead_days = models.IntegerField(default=7)
+    master_qr_code = models.ImageField(upload_to='site_settings/', null=True, blank=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:

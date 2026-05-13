@@ -3,6 +3,7 @@ from .views import (
     PublicSiteSettingsView, AdminSiteSettingsView, PricingOverviewView,
     PricingDayRuleView, PincodeRuleView, MandatoryQuestionView, PublicQuestionsView,
     CouponView, SupportMessageCreateView, AdminSupportMessageView,
+    AdminBulkDeleteOrdersView,
 )
 
 urlpatterns = [
@@ -21,4 +22,5 @@ urlpatterns = [
     path('support/', SupportMessageCreateView.as_view(), name='support-create'),
     path('admin/support/', AdminSupportMessageView.as_view(), name='admin-support'),
     path('admin/support/<int:pk>/', AdminSupportMessageView.as_view(), name='admin-support-detail'),
+    path('admin/settings/wipe-orders/', AdminBulkDeleteOrdersView.as_view(), name='admin-wipe-orders'),
 ]

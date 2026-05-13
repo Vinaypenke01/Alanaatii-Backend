@@ -259,3 +259,14 @@ class AdminSupportMessageView(APIView):
         ser.is_valid(raise_exception=True)
         ser.save()
         return Response(SupportMessageSerializer(msg).data)
+
+
+class AdminBulkDeleteOrdersView(APIView):
+    permission_classes = [IsAuthenticated, IsAdminUser]
+
+    def post(self, request):
+        count = services.wipe_all_orders_data()
+        return Response({
+            'message': 'Factory reset complete. All order data has been wiped.',
+            'deleted_count': count
+        })

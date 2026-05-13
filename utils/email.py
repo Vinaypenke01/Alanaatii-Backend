@@ -101,8 +101,7 @@ def send_payment_verified_email(order):
     if order.product_type == 'letterPaper':
         subject = f'Order Confirmed – #{order.id} | Alanaatii'
         action_text = (
-            f'Next Step: Our professional artists will now begin processing your order. '
-            f'We will notify you once your creation is ready for dispatch.\n\n'
+            f'We will notify you once your order is out of delivery.\n\n'
             f'We would love to hear your experience with Alanaatii so far:\n'
             f'{FRONTEND_URL}/submit-review?order={order.id}'
         )
@@ -304,3 +303,22 @@ def send_admin_script_approved_email(admin_email: str, order):
         f'Alanaatii Admin System'
     )
     send_email(admin_email, subject, body)
+
+
+def send_otp_email(to_email: str, code: str, purpose: str, role: str = 'admin'):
+    """Send OTP for password reset or update to Admin or Writer."""
+    is_reset = purpose == 'reset_password'
+    portal_name = "Admin" if role == 'admin' else "Writer"
+    subject = f'Verification Code: {code} | Alanaatii {portal_name}'
+    
+    action_text = "reset your password" if is_reset else "update your profile password"
+    body = (
+        f'Hello,\n\n'
+        f'You requested to {action_text} in the Alanaatii {portal_name} Portal.\n'
+        f'Your 6-digit verification code is:\n\n'
+        f'      {code}\n\n'
+        f'This code will expire in 10 minutes.\n'
+        f'If you did not request this, please ignore this email.\n\n'
+        f'Alanaatii System'
+    )
+    send_email(to_email, subject, body)

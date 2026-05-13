@@ -158,9 +158,9 @@ class UserProfileSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'full_name', 'email', 'phone_wa',
             'address_def', 'city_def', 'pincode_def',
-            'birthday', 'anniversary', 'created_at',
+            'birthday', 'anniversary', 'auth_provider', 'created_at',
         ]
-        read_only_fields = ['id', 'email', 'created_at']
+        read_only_fields = ['id', 'email', 'auth_provider', 'created_at']
 
 
 class UserAddressSerializer(serializers.ModelSerializer):

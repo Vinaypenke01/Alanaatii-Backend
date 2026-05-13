@@ -264,6 +264,41 @@ class AdminOrderDetailView(APIView):
             return Response({'error': True, 'message': 'Order not found.'}, status=404)
         return Response(OrderDetailSerializer(order).data)
 
+    def patch(self, request, order_id):
+        from apps.accounts.models import Admin
+        try:
+            order = Order.objects.get(id=order_id)
+        except Order.DoesNotExist:
+            return Response({'error': True, 'message': 'Order not found.'}, status=404)
+
+        admin = Admin.objects.get(id=request.user.id)
+        data = request.data
+
+        # If updating status, delegate to service
+        new_status = data.get('status') or data.get('new_status')
+        if new_status:
+            extra_data = {}
+            for field in ['tracking_id', 'courier_name', 'est_arrival', 'internal_notes']:
+                if field in data and data[field] is not None:
+                    extra_data[field] = data[field]
+            
+            order = services.admin_update_order_status(
+                order_id, new_status, admin, 
+                note=data.get('note') or 'Status updated via detail patch',
+                extra_data=extra_data or None
+            )
+        else:
+            # Update other allowed fields directly
+            for field in ['internal_notes', 'tracking_id', 'courier_name', 'est_arrival']:
+                if field in data:
+                    setattr(order, field, data[field])
+            order.save()
+
+        return Response({
+            'message': 'Order updated successfully.',
+            'order': OrderDetailSerializer(order).data
+        })
+
 
 class AdminOrderStatusUpdateView(APIView):
     permission_classes = [IsAuthenticated, IsAdminUser]

@@ -174,7 +174,7 @@ class WriterLoginView(APIView):
         return Response({
             'message': 'Login successful.',
             'tokens': result['tokens'],
-            'writer': WriterProfileSerializer(result['writer']).data,
+            'user': WriterProfileSerializer(result['writer']).data,
         })
 
 
@@ -199,8 +199,81 @@ class AdminLoginView(APIView):
         return Response({
             'message': 'Login successful.',
             'tokens': result['tokens'],
-            'admin': AdminSerializer(result['admin']).data,
+            'user': AdminSerializer(result['admin']).data,
         })
+
+
+class OTPRequestView(APIView):
+    permission_classes = [AllowAny]
+    role = 'admin'
+
+    def post(self, request):
+        email = request.data.get('email')
+        purpose = request.data.get('purpose', 'reset_password')
+        if not email:
+            return Response({'error': True, 'message': 'Email is required.'}, status=400)
+        services.request_otp(email, self.role, purpose)
+        return Response({'message': 'OTP sent to your email.'})
+
+
+class PasswordResetView(APIView):
+    permission_classes = [AllowAny]
+    role = 'admin'
+
+    def post(self, request):
+        email = request.data.get('email')
+        code = request.data.get('code')
+        new_password = request.data.get('new_password')
+        if not all([email, code, new_password]):
+            return Response({'error': True, 'message': 'Email, code and new_password are required.'}, status=400)
+        services.reset_password_with_otp(email, self.role, code, new_password)
+        return Response({'message': 'Password reset successful.'})
+
+
+class PasswordUpdateView(APIView):
+    permission_classes = [IsAuthenticated]
+    role = 'admin'
+
+    def post(self, request):
+        code = request.data.get('code')
+        new_password = request.data.get('new_password')
+        if not all([code, new_password]):
+            return Response({'error': True, 'message': 'Code and new_password are required.'}, status=400)
+        services.update_password_with_otp(request.user.id, self.role, code, new_password)
+        return Response({'message': 'Password updated successfully.'})
+
+
+# ─── Role Specific Implementations ───────────────────────────────────────────
+
+class AdminRequestOTPView(OTPRequestView):
+    role = 'admin'
+
+class AdminResetPasswordView(PasswordResetView):
+    role = 'admin'
+
+class AdminUpdatePasswordView(PasswordUpdateView):
+    permission_classes = [IsAuthenticated, IsAdminUser]
+    role = 'admin'
+
+class WriterRequestOTPView(OTPRequestView):
+    role = 'writer'
+
+class WriterResetPasswordView(PasswordResetView):
+    role = 'writer'
+
+class WriterUpdatePasswordView(PasswordUpdateView):
+    permission_classes = [IsAuthenticated, IsWriterUser]
+    role = 'writer'
+
+class CustomerRequestOTPView(OTPRequestView):
+    role = 'user'
+
+class CustomerResetPasswordView(PasswordResetView):
+    role = 'user'
+
+class CustomerUpdatePasswordView(PasswordUpdateView):
+    permission_classes = [IsAuthenticated]
+    role = 'user'
 
 
 # ─── Admin: Writer Management ─────────────────────────────────────────────────
@@ -222,12 +295,26 @@ class AdminWriterListCreateView(APIView):
 
     def post(self, request):
         admin = Admin.objects.get(id=request.user.id)
+        email = request.data.get('email')
+        otp_code = request.data.get('otp_code')
+
+        if not otp_code:
+            return Response({'error': True, 'message': 'Verification code (OTP) is required to onboard a writer.'}, status=400)
+
+        # Verify OTP
+        services.verify_otp(email, otp_code, 'create_writer')
+
         serializer = WriterCreateSerializer(data=request.data, context={'admin': admin})
         serializer.is_valid(raise_exception=True)
         writer = serializer.save()
-        logger.info(f'Admin {admin.email} created writer {writer.email}')
+
+        # Mark OTP as used
+        from .models import OTPVerification
+        OTPVerification.objects.filter(email=email, code=otp_code, purpose='create_writer').update(is_verified=True)
+
+        logger.info(f'Admin {admin.email} created writer {writer.email} after OTP verification')
         return Response({
-            'message': 'Writer account created.',
+            'message': 'Writer account created and verified.',
             'writer': WriterSerializer(writer).data,
         }, status=status.HTTP_201_CREATED)
 

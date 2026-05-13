@@ -7,6 +7,35 @@ import uuid
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
 from django.db import models
 from django.utils import timezone
+import random
+
+
+class OTPVerification(models.Model):
+    PURPOSE_CHOICES = [
+        ('reset_password', 'Reset Password'),
+        ('update_password', 'Update Password'),
+    ]
+    email = models.EmailField()
+    code = models.CharField(max_length=6)
+    purpose = models.CharField(max_length=20, choices=PURPOSE_CHOICES)
+    created_at = models.DateTimeField(default=timezone.now)
+    is_verified = models.BooleanField(default=False)
+
+    class Meta:
+        db_table = 'otp_verifications'
+        ordering = ['-created_at']
+
+    def is_expired(self):
+        # 10 minutes expiry
+        return (timezone.now() - self.created_at).total_seconds() > 600
+
+    @classmethod
+    def generate_code(cls, email, purpose):
+        code = str(random.randint(100000, 999999))
+        return cls.objects.create(email=email, code=code, purpose=purpose)
+
+    def __str__(self):
+        return f'{self.email} – {self.purpose} ({self.code})'
 
 
 # ─── Managers ─────────────────────────────────────────────────────────────────

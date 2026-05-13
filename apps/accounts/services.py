@@ -80,3 +80,93 @@ def delete_writer(writer_id: str, admin) -> None:
         )
     logger.warning(f'Admin {admin.email} deleted writer {writer.email}')
     writer.delete()
+
+
+def request_otp(email: str, role: str, purpose: str) -> None:
+    """Generate and send OTP to user based on role."""
+    from .models import Admin, Writer, OTPVerification
+    from utils.email import send_otp_email
+    from rest_framework.exceptions import NotFound
+
+    if role == 'admin':
+        model = Admin
+    elif role == 'writer':
+        model = Writer
+    elif role == 'user':
+        model = User
+    else:
+        raise ValueError('Invalid role for OTP request.')
+
+    try:
+        user_obj = model.objects.get(email=email)
+    except model.DoesNotExist:
+        if purpose != 'create_writer':
+            raise NotFound(f'No {role} account found with this email.')
+
+    otp_obj = OTPVerification.generate_code(email, purpose)
+    send_otp_email(email, otp_obj.code, purpose, role)
+    logger.info(f'OTP sent to {role} {email} for {purpose}')
+
+
+def verify_otp(email: str, code: str, purpose: str) -> bool:
+    """Verify OTP and return True if valid."""
+    from .models import OTPVerification
+    from rest_framework.exceptions import ValidationError
+
+    try:
+        otp_obj = OTPVerification.objects.get(email=email, code=code, purpose=purpose)
+    except OTPVerification.DoesNotExist:
+        raise ValidationError('Invalid verification code.')
+
+    if otp_obj.is_expired():
+        raise ValidationError('Verification code has expired.')
+
+    if otp_obj.is_verified:
+        raise ValidationError('This code has already been used.')
+
+    return True
+
+
+def reset_password_with_otp(email: str, role: str, code: str, new_password: str) -> None:
+    """Reset user password after OTP verification."""
+    from .models import Admin, Writer, OTPVerification
+    
+    verify_otp(email, code, 'reset_password')
+    
+    otp_obj = OTPVerification.objects.get(email=email, code=code, purpose='reset_password')
+    
+    if role == 'admin':
+        user_obj = Admin.objects.get(email=email)
+    elif role == 'writer':
+        user_obj = Writer.objects.get(email=email)
+    else:
+        user_obj = User.objects.get(email=email)
+
+    user_obj.set_password(new_password)
+    user_obj.save()
+
+    otp_obj.is_verified = True
+    otp_obj.save()
+    logger.info(f'{role.capitalize()} {email} reset password successfully')
+
+
+def update_password_with_otp(user_id: str, role: str, code: str, new_password: str) -> None:
+    """Update user password from profile after OTP verification."""
+    from .models import Admin, Writer, OTPVerification
+
+    if role == 'admin':
+        user_obj = Admin.objects.get(id=user_id)
+    elif role == 'writer':
+        user_obj = Writer.objects.get(id=user_id)
+    else:
+        user_obj = User.objects.get(id=user_id)
+
+    verify_otp(user_obj.email, code, 'update_password')
+    
+    otp_obj = OTPVerification.objects.get(email=user_obj.email, code=code, purpose='update_password')
+    user_obj.set_password(new_password)
+    user_obj.save()
+
+    otp_obj.is_verified = True
+    otp_obj.save()
+    logger.info(f'{role.capitalize()} {user_obj.email} updated password successfully via profile')
