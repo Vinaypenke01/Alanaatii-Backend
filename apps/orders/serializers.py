@@ -44,6 +44,7 @@ class OrderListSerializer(serializers.ModelSerializer):
     box_name = serializers.SerializerMethodField()
     gift_name = serializers.SerializerMethodField()
     script_package_name = serializers.SerializerMethodField()
+    writer_name = serializers.SerializerMethodField()
 
     class Meta:
         model = Order
@@ -52,8 +53,9 @@ class OrderListSerializer(serializers.ModelSerializer):
             'recipient_name', 'recipient_country_code', 'recipient_phone', 'primary_contact', 'relation',
             'total_amount', 'base_price', 'style_price', 'box_price', 'gift_price', 
             'delivery_price', 'express_price', 'pincode_fee', 'early_fee', 'discount_amt', 'pincode', 'paper',
-            'paper_quantity', 'delivery_date', 'created_at', 'user_answers',
-            'letter_theme_name', 'text_style_name', 'paper_name', 'box_name', 'gift_name', 'script_package_name'
+            'paper_quantity', 'delivery_date', 'created_at', 'user_answers', 'writer',
+            'letter_theme_name', 'text_style_name', 'paper_name', 'box_name', 'gift_name', 'script_package_name',
+            'writer_name', 'script_content'
         ]
 
     def get_paper_name(self, obj): return obj.paper.title if obj.paper else None
@@ -62,6 +64,23 @@ class OrderListSerializer(serializers.ModelSerializer):
     def get_box_name(self, obj): return obj.box.title if obj.box else None
     def get_gift_name(self, obj): return obj.gift.title if obj.gift else None
     def get_script_package_name(self, obj): return obj.script_package.title if obj.script_package else None
+    def get_writer_name(self, obj): return obj.writer.full_name if obj.writer else None
+
+    def get_user_answers(self, obj):
+        from apps.admin_ops.models import MandatoryQuestion
+        answers = obj.user_answers or []
+        # Efficiency: Fetch active questions to map IDs to text
+        q_map = {q.id: q.question_text for q in MandatoryQuestion.objects.all()}
+        
+        enriched = []
+        for a in answers:
+            q_id = a.get('question_id')
+            enriched.append({
+                'question_id': q_id,
+                'question': q_map.get(q_id, "Additional Info"),
+                'answer': a.get('answer')
+            })
+        return enriched
 
 
 class OrderDetailSerializer(serializers.ModelSerializer):
@@ -82,6 +101,7 @@ class OrderDetailSerializer(serializers.ModelSerializer):
     box_image = serializers.SerializerMethodField()
     gift_image = serializers.SerializerMethodField()
     script_package_image = serializers.SerializerMethodField()
+    user_answers = serializers.SerializerMethodField()
 
     class Meta:
         model = Order
@@ -112,6 +132,21 @@ class OrderDetailSerializer(serializers.ModelSerializer):
     def get_latest_transaction(self, obj):
         txn = obj.transactions.order_by('-created_at').first()
         return TransactionSerializer(txn).data if txn else None
+
+    def get_user_answers(self, obj):
+        from apps.admin_ops.models import MandatoryQuestion
+        answers = obj.user_answers or []
+        q_map = {q.id: q.question_text for q in MandatoryQuestion.objects.all()}
+        
+        enriched = []
+        for a in answers:
+            q_id = a.get('question_id')
+            enriched.append({
+                'question_id': q_id,
+                'question': q_map.get(q_id, "Additional Info"),
+                'answer': a.get('answer')
+            })
+        return enriched
 
 
 class TransactionSerializer(serializers.ModelSerializer):

@@ -11,7 +11,7 @@ class WriterAssignmentSerializer(serializers.ModelSerializer):
     class Meta:
         model = WriterAssignment
         fields = ['id', 'order_id', 'writer_id', 'status', 'decline_reason',
-                  'assigned_at', 'responded_at', 'order_detail']
+                  'assigned_at', 'responded_at', 'submission_due_at', 'order_detail']
 
     def get_order_detail(self, obj):
         from apps.orders.serializers import OrderListSerializer

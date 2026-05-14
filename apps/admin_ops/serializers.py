@@ -40,7 +40,9 @@ class SiteSettingsSerializer(serializers.ModelSerializer):
         fields = [
             'master_upi_id', 'support_email', 'support_whatsapp',
             'maintenance_mode', 'auto_assign_writers', 'default_delivery_fee', 
-            'min_delivery_lead_days', 'master_qr_code', 'updated_at', 'pincode_rules', 'day_rules'
+            'min_delivery_lead_days', 'master_qr_code', 'frontend_url', 
+            'writer_acceptance_sla_hours', 'script_submission_deadline_days',
+            'updated_at', 'pincode_rules', 'day_rules'
         ]
         read_only_fields = ['updated_at']
 

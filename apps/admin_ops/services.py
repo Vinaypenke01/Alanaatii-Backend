@@ -97,8 +97,9 @@ def validate_coupon(code: str, order_total: Decimal) -> Decimal:
 def get_questions_for_relation(relation_type: str = None) -> list:
     """Return ordered universal questions for all orders."""
     from .models import MandatoryQuestion
-    questions = MandatoryQuestion.objects.all().order_by('display_order')
-    return list(questions.values('id', 'question_text', 'is_required', 'display_order'))
+    from .serializers import MandatoryQuestionSerializer
+    questions = MandatoryQuestion.objects.filter(is_active=True).order_by('display_order')
+    return MandatoryQuestionSerializer(questions, many=True).data
 
 
 def get_site_settings():

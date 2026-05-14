@@ -161,6 +161,36 @@ def create_order(data: dict, user=None) -> Order:
 
     order.save()
 
+    # Update User profile with "permanent" details if empty
+    if user:
+        updated_fields = []
+        if not user.phone_wa and order.customer_phone:
+            user.phone_wa = order.customer_phone
+            updated_fields.append('phone_wa')
+        
+        if not user.address_def and order.address:
+            user.address_def = order.address
+            user.city_def = order.city
+            user.pincode_def = order.pincode
+            updated_fields.extend(['address_def', 'city_def', 'pincode_def'])
+        elif user.address_def and order.address and user.address_def.strip() != order.address.strip():
+            # Save as secondary address if different from default
+            from apps.accounts.models import UserAddress
+            # Check if this address already exists to avoid duplicates
+            if not UserAddress.objects.filter(user=user, address__iexact=order.address.strip()).exists():
+                UserAddress.objects.create(
+                    user=user,
+                    receiver_name=order.recipient_name or order.customer_name,
+                    phone=order.recipient_phone or order.customer_phone,
+                    address=order.address,
+                    city=order.city,
+                    pincode=order.pincode,
+                    label='Secondary'
+                )
+
+        if updated_fields:
+            user.save(update_fields=updated_fields)
+
     # Create transaction record (payment pending)
     screenshot_url = data.get('payment_screenshot', '')
     Transaction.objects.create(
@@ -246,15 +276,9 @@ def verify_payment(transaction_id: str, bank_txn_id: str, admin) -> Order:
         order_id=order.id,
     )
 
-    # Auto-assign if order_placed and setting enabled (only for script-based products)
-    if new_status == OrderStatus.ORDER_PLACED and order.product_type != 'letterPaper':
-        settings = SiteSettings.get()
-        if settings.auto_assign_writers:
-            try:
-                auto_assign_writer(order.id, admin)
-            except Exception as e:
-                logger.warning(f'Auto-assign failed for {order.id}: {e}')
-
+    # Auto-assignment for writers is handled in submit_questionnaire for script-based products.
+    # letterPaper orders do not require a writer.
+    
     return order
 
 
@@ -444,7 +468,8 @@ def submit_script(order_id: str, content: str, writer_note: str, writer) -> Scri
     old_status = order.status
     order.status = OrderStatus.CUSTOMER_REVIEW
     order.submitted_at = order.submitted_at or timezone.now()
-    order.save(update_fields=['status', 'submitted_at'])
+    order.script_content = content  # Sync with order for immediate visibility
+    order.save(update_fields=['status', 'submitted_at', 'script_content'])
     _record_status_change(order, old_status, OrderStatus.CUSTOMER_REVIEW, writer.id, 'writer', f'Script v{version_num} submitted')
 
     # Delete draft after submission

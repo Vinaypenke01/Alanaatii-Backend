@@ -4,7 +4,7 @@ from .views import (
     QuestionnaireSubmitView, ScriptApprovalView, UserCancelOrderView,
     PaymentScreenshotUploadView,
     WriterScriptSubmitView, WriterDraftView, WriterOrderListView, WriterOrderDetailView,
-    AdminOrderListView, AdminOrderDetailView, AdminOrderStatusUpdateView,
+    AdminOrderListView, AdminOrderDetailView, AdminOrderStatusStatsView, AdminOrderStatusUpdateView,
     AdminOrderCancelView, AdminReassignOrderView, AdminOrderResendNotificationView,
     AdminPaymentListView, AdminPaymentVerifyView, AdminPaymentRejectView,
     AdminRefundListCreateView, AdminRefundUpdateView,
@@ -30,6 +30,7 @@ urlpatterns = [
 
     # Admin: orders
     path('admin/orders/', AdminOrderListView.as_view(), name='admin-order-list'),
+    path('admin/orders/summary-stats/', AdminOrderStatusStatsView.as_view(), name='admin-order-stats'),
     path('admin/orders/<str:order_id>/', AdminOrderDetailView.as_view(), name='admin-order-detail'),
     path('admin/orders/<str:order_id>/status/', AdminOrderStatusUpdateView.as_view(), name='admin-order-status'),
     path('admin/orders/<str:order_id>/cancel/', AdminOrderCancelView.as_view(), name='admin-order-cancel'),

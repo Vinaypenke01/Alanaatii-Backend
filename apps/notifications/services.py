@@ -56,7 +56,7 @@ def generate_secure_link(order_id: str, link_type: str, target_email: str, expir
             target_email=target_email,
             expires_at=get_expiry(expiry_hours),
         )
-        frontend_url = getattr(settings, 'FRONTEND_URL', 'http://localhost:5173')
+        frontend_url = getattr(settings, 'FRONTEND_URL', 'http://localhost:5173').rstrip('/')
         if link_type == 'form_fill':
             return f'{frontend_url}/dashboard/details/{order_id}?token={token}'
         elif link_type == 'script_review':

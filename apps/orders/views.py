@@ -9,6 +9,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from django.conf import settings
+from django.db.models import Count, Q
 
 from utils.permissions import IsAdminUser, IsCustomerUser, IsWriterUser, IsAnyAuthenticated
 from utils.pagination import StandardPagination, LargeResultsPagination
@@ -227,19 +228,39 @@ class WriterOrderDetailView(APIView):
         except WriterAssignment.DoesNotExist:
             return Response({'error': True, 'message': 'Access denied or assignment not found.'}, status=403)
         
-        return Response(OrderDetailSerializer(assignment.order).data)
+        data = OrderDetailSerializer(assignment.order).data
+        data['submission_due_at'] = assignment.submission_due_at
+        return Response(data)
 
 
 # ─── Admin: Order Management ──────────────────────────────────────────────────
 
-class AdminOrderListView(APIView):
+class AdminOrderStatusStatsView(APIView):
     permission_classes = [IsAuthenticated, IsAdminUser]
 
     def get(self, request):
-        qs = Order.objects.all().order_by('-created_at')
+        qs = Order.objects.all()
+        
+        # Apply the same filters as the list view (except status)
+        product_type = request.query_params.get('product_type')
+        if product_type and product_type != 'all':
+            if product_type == 'letter':
+                qs = qs.filter(product_type__in=['letter', 'letterBox', 'letterBoxGift'])
+            else:
+                qs = qs.filter(product_type=product_type)
+        
         status_filter = request.query_params.get('status')
-        if status_filter:
+        if status_filter and status_filter != 'all':
             qs = qs.filter(status=status_filter)
+            
+        start_date = request.query_params.get('start_date')
+        if start_date:
+            qs = qs.filter(created_at__date__gte=start_date)
+            
+        end_date = request.query_params.get('end_date')
+        if end_date:
+            qs = qs.filter(created_at__date__lte=end_date)
+
         search = request.query_params.get('search')
         if search:
             from django.db.models import Q
@@ -249,6 +270,57 @@ class AdminOrderListView(APIView):
                 Q(id__icontains=search) |
                 Q(transactions__bank_transaction_id__icontains=search)
             ).distinct()
+            
+        # Get counts per status
+        stats = qs.values('status').annotate(count=Count('status'))
+        
+        # Also get total count
+        total_count = qs.count()
+        
+        # Convert to a more usable dict format: {status_key: count}
+        stats_dict = {item['status']: item['count'] for item in stats}
+        stats_dict['all'] = total_count
+        
+        return Response(stats_dict)
+
+class AdminOrderListView(APIView):
+    permission_classes = [IsAuthenticated, IsAdminUser]
+
+    def get(self, request):
+        qs = Order.objects.all()
+        
+        # Filtering
+        status_filter = request.query_params.get('status')
+        if status_filter and status_filter != 'all':
+            qs = qs.filter(status=status_filter)
+            
+        product_type = request.query_params.get('product_type')
+        if product_type and product_type != 'all':
+            if product_type == 'letter':
+                qs = qs.filter(product_type__in=['letter', 'letterBox', 'letterBoxGift'])
+            else:
+                qs = qs.filter(product_type=product_type)
+            
+        start_date = request.query_params.get('start_date')
+        if start_date:
+            qs = qs.filter(created_at__date__gte=start_date)
+            
+        end_date = request.query_params.get('end_date')
+        if end_date:
+            qs = qs.filter(created_at__date__lte=end_date)
+
+        qs = qs.order_by('-created_at')
+
+        search = request.query_params.get('search')
+        if search:
+            from django.db.models import Q
+            qs = qs.filter(
+                Q(customer_name__icontains=search) | 
+                Q(customer_email__icontains=search) | 
+                Q(id__icontains=search) |
+                Q(transactions__bank_transaction_id__icontains=search)
+            ).distinct()
+            
         paginator = LargeResultsPagination()
         page = paginator.paginate_queryset(qs, request)
         return paginator.get_paginated_response(OrderListSerializer(page, many=True).data)

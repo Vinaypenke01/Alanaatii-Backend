@@ -97,6 +97,11 @@ class SiteSettings(models.Model):
     default_delivery_fee = models.DecimalField(max_digits=10, decimal_places=2, default=100)
     min_delivery_lead_days = models.IntegerField(default=7)
     master_qr_code = models.ImageField(upload_to='site_settings/', null=True, blank=True)
+    frontend_url = models.URLField(max_length=255, default='http://localhost:8080', help_text='Base URL for frontend links in emails')
+
+    # Writer SLA settings
+    writer_acceptance_sla_hours = models.IntegerField(default=24, help_text='Hours for writer to accept assignment before admin is alerted')
+    script_submission_deadline_days = models.IntegerField(default=3, help_text='Days for writer to submit script after accepting')
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
@@ -115,6 +120,7 @@ class SiteSettings(models.Model):
             'support_whatsapp': '+91-0000000000',
             'default_delivery_fee': 100,
             'min_delivery_lead_days': 7,
+            'frontend_url': 'http://localhost:8080',
         })
         return obj
 

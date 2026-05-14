@@ -12,7 +12,14 @@ logger = logging.getLogger('apps')
 # Configure Resend
 resend.api_key = settings.RESEND_API_KEY
 
-FRONTEND_URL = settings.FRONTEND_URL
+def get_frontend_url():
+    """Fetches the frontend URL from SiteSettings or defaults to settings."""
+    from apps.admin_ops.models import SiteSettings
+    try:
+        url = SiteSettings.get().frontend_url
+    except Exception:
+        url = settings.FRONTEND_URL
+    return url.rstrip('/')
 
 
 def send_email(to: str, subject: str, text_body: str, html_body: str = None):
@@ -88,7 +95,7 @@ def send_order_placed_email(order):
         f'{product_details}\n'
         f'Total Amount: ₹{order.total_amount}\n\n'
         f'Our admin team will verify your payment and update you shortly.\n'
-        f'You can track your order at: {FRONTEND_URL}/dashboard/orders/{order.id}\n\n'
+        f'You can track your order at: {get_frontend_url()}/dashboard/orders/{order.id}\n\n'
         f'With love,\nTeam Alanaatii'
     )
     send_email(order.customer_email, subject, body)
@@ -99,19 +106,19 @@ def send_payment_verified_email(order):
     product_details = _get_product_summary(order)
     
     if order.product_type == 'letterPaper':
-        subject = f'Order Confirmed – #{order.id} | Alanaatii'
+        subject = f'Order Placed Successfully – #{order.id} | Alanaatii'
         action_text = (
             f'We will notify you once your order is out of delivery.\n\n'
             f'We would love to hear your experience with Alanaatii so far:\n'
-            f'{FRONTEND_URL}/submit-review?order={order.id}'
+            f'{get_frontend_url()}/submit-review?order={order.id}'
         )
     else:
-        subject = f'Payment Verified – #{order.id} | Alanaatii'
+        subject = f'Order Placed Successfully – #{order.id} | Alanaatii'
         # Dynamic body based on whether details are needed
         if order.status == 'awaiting_details':
             action_text = (
                 f'Next Step: Please fill in the required details for your letter so our writer can begin crafting it.\n\n'
-                f'Fill Details Here: {FRONTEND_URL}/dashboard/details/{order.id}'
+                f'Fill Details Here: {get_frontend_url()}/dashboard/details/{order.id}'
             )
         else:
             action_text = (
@@ -138,7 +145,7 @@ def send_payment_rejected_email(order, reason: str):
         f'Unfortunately, we could not verify your payment for Order #{order.id}.\n\n'
         f'Reason: {reason}\n\n'
         f'Please upload a valid payment screenshot here:\n'
-        f'{FRONTEND_URL}/dashboard/orders/{order.id}\n\n'
+        f'{get_frontend_url()}/dashboard/orders/{order.id}\n\n'
         f'If you need help, contact us at {settings.DEFAULT_FROM_EMAIL}\n\n'
         f'With love,\nTeam Alanaatii'
     )
@@ -148,7 +155,7 @@ def send_payment_rejected_email(order, reason: str):
 def send_details_reminder_email(order, secure_link_url: str = None):
     """Remind customer to fill in the relationship questionnaire."""
     subject = f'Action Required: Fill Order Details – #{order.id} | Alanaatii'
-    link = secure_link_url or f'{FRONTEND_URL}/dashboard/details/{order.id}'
+    link = secure_link_url or f'{get_frontend_url()}/dashboard/details/{order.id}'
     body = (
         f'Hi {order.customer_name},\n\n'
         f'Your order #{order.id} is waiting for your story!\n\n'
@@ -162,7 +169,7 @@ def send_details_reminder_email(order, secure_link_url: str = None):
 def send_script_ready_email(order, secure_link_url: str = None):
     """Notify customer that their script is ready for review."""
     subject = f'Your Letter Script is Ready! – #{order.id} | Alanaatii'
-    link = secure_link_url or f'{FRONTEND_URL}/dashboard/orders/{order.id}'
+    link = secure_link_url or f'{get_frontend_url()}/dashboard/scripts?order={order.id}'
     body = (
         f'Hi {order.customer_name},\n\n'
         f'Exciting news! Our writer has completed the script for your letter (Order #{order.id}).\n\n'
@@ -181,7 +188,7 @@ def send_revision_submitted_email(order):
     body = (
         f'Hi {order.customer_name},\n\n'
         f'Your writer has submitted the revised script for Order #{order.id}.\n\n'
-        f'Review it here:\n{FRONTEND_URL}/dashboard/orders/{order.id}\n\n'
+        f'Review it here:\n{get_frontend_url()}/dashboard/scripts?order={order.id}\n\n'
         f'With love,\nTeam Alanaatii'
     )
     send_email(order.customer_email, subject, body)
@@ -196,7 +203,7 @@ def send_out_for_delivery_email(order):
         f'Courier: {order.courier_name or "Our Delivery Partner"}\n'
         f'Tracking ID: {order.tracking_id or "Will be updated shortly"}\n'
         f'Estimated Arrival: {order.est_arrival or "As per schedule"}\n\n'
-        f'Track your order: {FRONTEND_URL}/dashboard/orders/{order.id}\n\n'
+        f'Track your order: {get_frontend_url()}/dashboard/orders/{order.id}\n\n'
         f'With love,\nTeam Alanaatii'
     )
     send_email(order.customer_email, subject, body)
@@ -210,7 +217,7 @@ def send_delivered_email(order):
         f'Your order #{order.id} has been delivered!\n\n'
         f'We hope your letter brings joy to {order.recipient_name}.\n\n'
         f'We would love to hear your feedback:\n'
-        f'{FRONTEND_URL}/submit-review?order={order.id}\n\n'
+        f'{get_frontend_url()}/submit-review?order={order.id}\n\n'
         f'With love,\nTeam Alanaatii'
     )
     send_email(order.customer_email, subject, body)
@@ -229,7 +236,7 @@ def send_writer_assignment_email(writer, order):
         f'Delivery Date: {order.delivery_date}\n'
         f'Relation: {order.relation or "Not specified"}\n\n'
         f'Please log in to your writer dashboard to accept or decline:\n'
-        f'{FRONTEND_URL}/writer/assignments\n\n'
+        f'{get_frontend_url()}/writer/assignments\n\n'
         f'Team Alanaatii'
     )
     send_email(writer.email, subject, body)
@@ -242,7 +249,7 @@ def send_writer_revision_email(writer, order):
         f'Hi {writer.full_name},\n\n'
         f'The customer has requested a revision for Order #{order.id}.\n\n'
         f'Their feedback:\n{order.revision_note or "Please check your dashboard."}\n\n'
-        f'Log in to revise: {FRONTEND_URL}/writer\n\n'
+        f'Log in to revise: {get_frontend_url()}/writer\n\n'
         f'Team Alanaatii'
     )
     send_email(writer.email, subject, body)
@@ -256,13 +263,41 @@ def send_writer_payout_email(writer, payout):
         f'Your payout of ₹{payout.amount} has been processed!\n\n'
         f'Reference ID: {payout.reference_id or "N/A"}\n'
         f'Period: {payout.period_start} to {payout.period_end}\n\n'
-        f'View your payouts: {FRONTEND_URL}/writer/profile\n\n'
+        f'View your payouts: {get_frontend_url()}/writer/profile\n\n'
+        f'Team Alanaatii'
+    )
+    send_email(writer.email, subject, body)
+
+
+def send_writer_deadline_alert_email(writer, assignment):
+    """Notify writer that a submission deadline is approaching (within 24h)."""
+    subject = f'ACTION REQUIRED: Script Deadline Approaching – #{assignment.order_id}'
+    body = (
+        f'Hi {writer.full_name},\n\n'
+        f'This is a friendly reminder that your script for Order #{assignment.order_id} is due soon.\n\n'
+        f'Due Date: {assignment.submission_due_at.strftime("%Y-%m-%d %H:%M")}\n\n'
+        f'Please ensure you submit your final script through the dashboard to avoid any delays:\n'
+        f'{get_frontend_url()}/writer\n\n'
         f'Team Alanaatii'
     )
     send_email(writer.email, subject, body)
 
 
 # ─── Admin Emails ─────────────────────────────────────────────────────────────
+
+def send_admin_sla_alert_email(admin_email: str, writer, order):
+    """Notify admin that writer hasn't accepted assignment within 24h SLA."""
+    subject = f'SLA ALERT: Assignment Not Accepted – #{order.id}'
+    body = (
+        f'An assignment for Order #{order.id} has not been accepted within the 24-hour SLA.\n\n'
+        f'Assigned Writer: {writer.full_name} ({writer.email})\n'
+        f'Order ID: {order.id}\n\n'
+        f'Please check the status and re-assign if necessary:\n'
+        f'{get_frontend_url()}/admin/orders\n\n'
+        f'Alanaatii Admin System'
+    )
+    send_email(admin_email, subject, body)
+
 
 def send_admin_new_order_email(admin_email: str, order):
     """Notify admin of a new order requiring payment verification."""
@@ -273,7 +308,7 @@ def send_admin_new_order_email(admin_email: str, order):
         f'Customer: {order.customer_name} ({order.customer_email})\n'
         f'Product: {order.product_type}\n'
         f'Amount: ₹{order.total_amount}\n\n'
-        f'Verify Payment: {FRONTEND_URL}/admin/payments\n\n'
+        f'Verify Payment: {get_frontend_url()}/admin/payments\n\n'
         f'Alanaatii Admin System'
     )
     send_email(admin_email, subject, body)
@@ -285,7 +320,7 @@ def send_admin_assignment_rejected_email(admin_email: str, writer, order, reason
     body = (
         f'Writer {writer.full_name} has declined the assignment for Order #{order.id}.\n\n'
         f'Reason: {reason}\n\n'
-        f'Please re-assign: {FRONTEND_URL}/admin/orders\n\n'
+        f'Please re-assign: {get_frontend_url()}/admin/orders\n\n'
         f'Alanaatii Admin System'
     )
     send_email(admin_email, subject, body)
@@ -299,7 +334,7 @@ def send_admin_script_approved_email(admin_email: str, order):
         f'Customer: {order.customer_name}\n'
         f'Recipient: {order.recipient_name}\n\n'
         f'Please move the order to Under Writing status:\n'
-        f'{FRONTEND_URL}/admin/orders\n\n'
+        f'{get_frontend_url()}/admin/orders\n\n'
         f'Alanaatii Admin System'
     )
     send_email(admin_email, subject, body)

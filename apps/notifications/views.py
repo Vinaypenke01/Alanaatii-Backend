@@ -58,3 +58,15 @@ class AdminAuditLogView(APIView):
     def get(self, request):
         qs = AuditLog.objects.all().order_by('-created_at')[:100]
         return Response(AuditLogSerializer(qs, many=True).data)
+
+
+class UnreadNotificationCountView(APIView):
+    permission_classes = [IsAuthenticated, IsAnyAuthenticated]
+
+    def get(self, request):
+        from utils.permissions import get_role
+        role = get_role(request)
+        count = Notification.objects.filter(
+            target_id=str(request.user.id), target_role=role, is_read=False
+        ).count()
+        return Response({'unread_count': count})

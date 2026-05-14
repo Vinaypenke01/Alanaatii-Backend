@@ -26,6 +26,11 @@ class WriterAssignment(models.Model):
     created_by = models.ForeignKey(
         'accounts.Admin', on_delete=models.SET_NULL, null=True, blank=True, related_name='created_assignments'
     )
+    
+    # Deadline Tracking
+    submission_due_at = models.DateTimeField(null=True, blank=True, help_text='Calculated when accepted based on SiteSettings')
+    sla_notified = models.BooleanField(default=False, help_text='True if admin was notified about acceptance delay')
+    deadline_notified = models.BooleanField(default=False, help_text='True if writer was alerted about approaching deadline')
 
     class Meta:
         db_table = 'writer_assignments'
