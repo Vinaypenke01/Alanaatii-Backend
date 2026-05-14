@@ -195,14 +195,60 @@ class WriterLoginSerializer(serializers.Serializer):
 
 class WriterSerializer(serializers.ModelSerializer):
     active_job_count = serializers.ReadOnlyField()
+    assigned_count = serializers.SerializerMethodField()
+    pending_response_count = serializers.SerializerMethodField()
+    active_scripts_count = serializers.SerializerMethodField()
+    rejected_count = serializers.SerializerMethodField()
+    approved_count = serializers.SerializerMethodField()
 
     class Meta:
         model = Writer
         fields = [
             'id', 'full_name', 'email', 'phone', 'phone_alt',
-            'address', 'languages', 'status', 'active_job_count', 'created_at',
+            'address', 'languages', 'status', 'active_job_count', 
+            'assigned_count', 'pending_response_count', 'active_scripts_count', 
+            'rejected_count', 'approved_count',
+            'created_at',
         ]
         read_only_fields = ['id', 'created_at', 'active_job_count']
+
+    def get_assigned_count(self, obj):
+        """Total number of assignments ever given."""
+        return obj.assignments.count()
+
+    def get_pending_response_count(self, obj):
+        """Assignments waiting for writer to accept/decline."""
+        return obj.assignments.filter(status='pending').count()
+
+    def get_active_scripts_count(self, obj):
+        """Accepted assignments that are still in progress (not yet approved/delivered)."""
+        from apps.orders.models import OrderStatus
+        return obj.assignments.filter(
+            status='accepted'
+        ).exclude(
+            order__status__in=[
+                OrderStatus.APPROVED,
+                OrderStatus.UNDER_WRITING,
+                OrderStatus.OUT_FOR_DELIVERY,
+                OrderStatus.DELIVERED,
+                OrderStatus.CANCELLED,
+                OrderStatus.REFUNDED
+            ]
+        ).count()
+
+    def get_rejected_count(self, obj):
+        """Assignments declined by the writer."""
+        return obj.assignments.filter(status='declined').count()
+
+    def get_approved_count(self, obj):
+        """Assignments where the script has been approved or beyond."""
+        from apps.orders.models import Order, OrderStatus
+        return Order.objects.filter(writer=obj, status__in=[
+            OrderStatus.APPROVED,
+            OrderStatus.UNDER_WRITING,
+            OrderStatus.OUT_FOR_DELIVERY,
+            OrderStatus.DELIVERED
+        ]).count()
 
 
 class WriterCreateSerializer(serializers.ModelSerializer):
@@ -247,11 +293,54 @@ class WriterUpdateSerializer(serializers.ModelSerializer):
 
 class WriterProfileSerializer(serializers.ModelSerializer):
     active_job_count = serializers.ReadOnlyField()
+    assigned_count = serializers.SerializerMethodField()
+    pending_response_count = serializers.SerializerMethodField()
+    active_scripts_count = serializers.SerializerMethodField()
+    rejected_count = serializers.SerializerMethodField()
+    approved_count = serializers.SerializerMethodField()
 
     class Meta:
         model = Writer
-        fields = ['id', 'full_name', 'email', 'phone', 'phone_alt', 'address', 'languages', 'status', 'active_job_count']
+        fields = [
+            'id', 'full_name', 'email', 'phone', 'phone_alt', 
+            'address', 'languages', 'status', 'active_job_count',
+            'assigned_count', 'pending_response_count', 'active_scripts_count', 
+            'rejected_count', 'approved_count'
+        ]
         read_only_fields = ['id', 'email']
+
+    def get_assigned_count(self, obj):
+        return obj.assignments.count()
+
+    def get_pending_response_count(self, obj):
+        return obj.assignments.filter(status='pending').count()
+
+    def get_active_scripts_count(self, obj):
+        from apps.orders.models import OrderStatus
+        return obj.assignments.filter(
+            status='accepted'
+        ).exclude(
+            order__status__in=[
+                OrderStatus.APPROVED,
+                OrderStatus.UNDER_WRITING,
+                OrderStatus.OUT_FOR_DELIVERY,
+                OrderStatus.DELIVERED,
+                OrderStatus.CANCELLED,
+                OrderStatus.REFUNDED
+            ]
+        ).count()
+
+    def get_rejected_count(self, obj):
+        return obj.assignments.filter(status='declined').count()
+
+    def get_approved_count(self, obj):
+        from apps.orders.models import Order, OrderStatus
+        return Order.objects.filter(writer=obj, status__in=[
+            OrderStatus.APPROVED,
+            OrderStatus.UNDER_WRITING,
+            OrderStatus.OUT_FOR_DELIVERY,
+            OrderStatus.DELIVERED
+        ]).count()
 
 
 # ─── Admin ────────────────────────────────────────────────────────────────────

@@ -5,6 +5,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
 
 from utils.permissions import IsAdminUser
+from utils.cache_keys import PUBLIC_REVIEWS, PUBLIC_FAQS, SITE_STEPS, REVIEWS_TTL, FAQS_TTL, STEPS_TTL
 from .models import Review, FAQ, SiteContentStep
 from .serializers import ReviewSerializer, FAQSerializer, SiteContentStepSerializer
 
@@ -13,8 +14,13 @@ class PublicReviewListView(APIView):
     permission_classes = [AllowAny]
 
     def get(self, request):
-        reviews = Review.objects.filter(is_published=True).order_by('-created_at')
-        return Response(ReviewSerializer(reviews, many=True).data)
+        from django.core.cache import cache
+        data = cache.get(PUBLIC_REVIEWS)
+        if data is None:
+            reviews = Review.objects.filter(is_published=True).order_by('-created_at')
+            data = ReviewSerializer(reviews, many=True).data
+            cache.set(PUBLIC_REVIEWS, data, REVIEWS_TTL)
+        return Response(data)
 
 
 class ReviewSubmitView(APIView):
@@ -53,8 +59,13 @@ class PublicFAQView(APIView):
     permission_classes = [AllowAny]
 
     def get(self, request):
-        faqs = FAQ.objects.filter(is_active=True).order_by('category', 'display_order')
-        return Response(FAQSerializer(faqs, many=True).data)
+        from django.core.cache import cache
+        data = cache.get(PUBLIC_FAQS)
+        if data is None:
+            faqs = FAQ.objects.filter(is_active=True).order_by('category', 'display_order')
+            data = FAQSerializer(faqs, many=True).data
+            cache.set(PUBLIC_FAQS, data, FAQS_TTL)
+        return Response(data)
 
 
 class AdminFAQView(APIView):
@@ -90,7 +101,12 @@ class SiteContentStepView(APIView):
     permission_classes = [AllowAny]
 
     def get(self, request):
-        return Response(SiteContentStepSerializer(SiteContentStep.objects.all(), many=True).data)
+        from django.core.cache import cache
+        data = cache.get(SITE_STEPS)
+        if data is None:
+            data = SiteContentStepSerializer(SiteContentStep.objects.all(), many=True).data
+            cache.set(SITE_STEPS, data, STEPS_TTL)
+        return Response(data)
 
 
 class AdminSiteContentStepView(APIView):

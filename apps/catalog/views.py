@@ -8,6 +8,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
 
 from utils.permissions import IsAdminUser
+from utils.cache_keys import CATALOG_ALL, CATALOG_CAT, CATALOG_TTL
 from .models import CatalogItem
 from .serializers import CatalogItemSerializer, CatalogItemCreateSerializer
 from . import services
@@ -17,14 +18,23 @@ class CatalogListView(APIView):
     permission_classes = [AllowAny]
 
     def get(self, request):
+        from django.core.cache import cache
+
         category = request.query_params.get('category')
         compatible_with = request.query_params.get('compatible_with')
-        
+
+        # Only cache simple requests — compatible_with is order-specific & must stay fresh
+        if not compatible_with:
+            cache_key = CATALOG_CAT.format(category=category) if category else CATALOG_ALL
+            cached_data = cache.get(cache_key)
+            if cached_data is not None:
+                return Response(cached_data)
+
         qs = CatalogItem.objects.filter(is_active=True)
-        
+
         if category:
             qs = qs.filter(category=category)
-            
+
         if compatible_with:
             try:
                 parent_item = CatalogItem.objects.get(id=compatible_with)
@@ -32,9 +42,14 @@ class CatalogListView(APIView):
                     qs = qs.filter(id__in=parent_item.compatible_boxes.all())
             except CatalogItem.DoesNotExist:
                 pass
-                
+
         qs = qs.order_by('category', 'title')
-        return Response(CatalogItemSerializer(qs, many=True, context={'request': request}).data)
+        data = CatalogItemSerializer(qs, many=True, context={'request': request}).data
+
+        if not compatible_with:
+            cache.set(cache_key, data, CATALOG_TTL)
+
+        return Response(data)
 
 
 class AdminCatalogSummaryView(APIView):
