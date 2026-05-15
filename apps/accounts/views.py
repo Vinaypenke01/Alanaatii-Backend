@@ -29,15 +29,6 @@ class UserRegisterView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
-        from django.conf import settings
-        if not settings.AUTH_MODE_PASSWORD:
-            return Response({
-                'error': True,
-                'code': 'AUTH_MODE_DISABLED',
-                'message': 'Password registration is disabled. Please use Google Sign-In.',
-                'google_endpoint': '/api/v1/auth/user/google/',
-            }, status=status.HTTP_403_FORBIDDEN)
-
         result = services.register_user(request.data)
         user = result['user']
         return Response({
@@ -51,15 +42,6 @@ class UserLoginView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
-        from django.conf import settings
-        if not settings.AUTH_MODE_PASSWORD:
-            return Response({
-                'error': True,
-                'code': 'AUTH_MODE_DISABLED',
-                'message': 'Password login is disabled. Please use Google Sign-In.',
-                'google_endpoint': '/api/v1/auth/user/google/',
-            }, status=status.HTTP_403_FORBIDDEN)
-
         result = services.login_user(
             request.data.get('email', ''),
             request.data.get('password', ''),
@@ -83,15 +65,6 @@ class GoogleLoginView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
-        from django.conf import settings
-        if settings.AUTH_MODE_PASSWORD:
-            return Response({
-                'error': True,
-                'code': 'AUTH_MODE_DISABLED',
-                'message': 'Google OAuth is disabled. Please use email and password to log in.',
-                'login_endpoint': '/api/v1/auth/user/login/',
-            }, status=status.HTTP_403_FORBIDDEN)
-
         serializer = GoogleLoginSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
