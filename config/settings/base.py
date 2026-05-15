@@ -115,14 +115,15 @@ STORAGES = {
         "BACKEND": "cloudinary_storage.storage.MediaCloudinaryStorage",
     },
     "staticfiles": {
-        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+        # CompressedStaticFilesStorage: compresses files but does NOT validate
+        # cross-references in CSS — avoids DRF bootstrap.min.css font errors.
+        "BACKEND": "whitenoise.storage.CompressedStaticFilesStorage",
     },
 }
 
 # Compatibility shim: django-cloudinary-storage 0.3.0 still reads the
 # deprecated STATICFILES_STORAGE setting (removed in Django 5.0).
-# This keeps collectstatic working until the package is updated.
-STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
+STATICFILES_STORAGE = "whitenoise.storage.CompressedStaticFilesStorage"
 
 # Cloudinary Configuration
 CLOUDINARY_STORAGE = {
