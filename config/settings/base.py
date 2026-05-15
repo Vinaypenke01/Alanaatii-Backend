@@ -119,6 +119,11 @@ STORAGES = {
     },
 }
 
+# Compatibility shim: django-cloudinary-storage 0.3.0 still reads the
+# deprecated STATICFILES_STORAGE setting (removed in Django 5.0).
+# This keeps collectstatic working until the package is updated.
+STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
+
 # Cloudinary Configuration
 CLOUDINARY_STORAGE = {
     'CLOUD_NAME': config('CLOUDINARY_CLOUD_NAME'),
