@@ -115,15 +115,14 @@ STORAGES = {
         "BACKEND": "cloudinary_storage.storage.MediaCloudinaryStorage",
     },
     "staticfiles": {
-        # CompressedStaticFilesStorage: compresses files but does NOT validate
-        # cross-references in CSS — avoids DRF bootstrap.min.css font errors.
-        "BACKEND": "whitenoise.storage.CompressedStaticFilesStorage",
+        # Plain storage: no compression/hashing — avoids whitenoise failures
+        # on Django 5.1 admin files. Whitenoise middleware still serves them.
+        "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
     },
 }
 
-# Compatibility shim: django-cloudinary-storage 0.3.0 still reads the
-# deprecated STATICFILES_STORAGE setting (removed in Django 5.0).
-STATICFILES_STORAGE = "whitenoise.storage.CompressedStaticFilesStorage"
+# Compatibility shim: django-cloudinary-storage 0.3.0 reads this deprecated setting.
+STATICFILES_STORAGE = "django.contrib.staticfiles.storage.StaticFilesStorage"
 
 # Cloudinary Configuration
 CLOUDINARY_STORAGE = {
