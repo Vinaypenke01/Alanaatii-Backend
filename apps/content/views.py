@@ -39,7 +39,10 @@ class AdminReviewView(APIView):
 
     def get(self, request):
         qs = Review.objects.all().order_by('-created_at')
-        return Response(ReviewSerializer(qs, many=True).data)
+        from utils.pagination import SmallPagination
+        paginator = SmallPagination()
+        page = paginator.paginate_queryset(qs, request)
+        return paginator.get_paginated_response(ReviewSerializer(page, many=True).data)
 
     def patch(self, request, pk):
         try:
@@ -72,7 +75,11 @@ class AdminFAQView(APIView):
     permission_classes = [IsAuthenticated, IsAdminUser]
 
     def get(self, request):
-        return Response(FAQSerializer(FAQ.objects.all().order_by('category', 'display_order'), many=True).data)
+        qs = FAQ.objects.all().order_by('category', 'display_order')
+        from utils.pagination import StandardPagination
+        paginator = StandardPagination()
+        page = paginator.paginate_queryset(qs, request)
+        return paginator.get_paginated_response(FAQSerializer(page, many=True).data)
 
     def post(self, request):
         from apps.accounts.models import Admin

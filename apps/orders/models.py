@@ -42,7 +42,7 @@ class PrimaryContact(models.TextChoices):
 class Order(models.Model):
     id = models.CharField(
         max_length=20, primary_key=True,
-        help_text='Human-readable order ID e.g. ORD-001'
+        help_text='Human-readable order ID e.g. ORDER-2000'
     )
     user = models.ForeignKey(
         'accounts.User', on_delete=models.SET_NULL, null=True, blank=True, related_name='orders'
@@ -96,7 +96,9 @@ class Order(models.Model):
     message_content = models.TextField(blank=True, null=True)
     special_notes = models.TextField(blank=True, null=True)
     express_script = models.BooleanField(default=False)
-    custom_letter_length = models.CharField(max_length=50, blank=True, null=True, help_text='Custom length/height if required by letter type')
+    custom_letter_length = models.CharField(max_length=50, blank=True, null=True, help_text='Custom length/quantity if required')
+    pricing_unit = models.CharField(max_length=10, default='page', help_text='Unit used for calculation (page/feet)')
+    unit_price_snapshot = models.DecimalField(max_digits=10, decimal_places=2, default=0, help_text='Price per unit at time of order')
 
     # Delivery details
     address = models.TextField(blank=True, null=True)
@@ -167,10 +169,22 @@ class Order(models.Model):
 
     @staticmethod
     def _generate_id():
-        """Generate a human-readable order ID like ORD-00142."""
-        import random
-        num = random.randint(10000, 99999)
-        return f'ORD-{num}'
+        """Generate a sequential human-readable order ID starting from ORDER-2000."""
+        prefix = 'ORDER-'
+        # Fetch existing IDs with this prefix to find the max number
+        existing_ids = Order.objects.filter(id__startswith=prefix).values_list('id', flat=True)
+        
+        max_num = 1999
+        for oid in existing_ids:
+            try:
+                num_str = oid[len(prefix):]
+                num = int(num_str)
+                if num > max_num:
+                    max_num = num
+            except (ValueError, IndexError):
+                continue
+        
+        return f'{prefix}{max_num + 1}'
 
     @property
     def can_cancel(self):

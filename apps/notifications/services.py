@@ -48,6 +48,8 @@ def generate_secure_link(order_id: str, link_type: str, target_email: str, expir
     """
     try:
         from .models import SecureLink
+        from utils.email import get_frontend_url
+        
         token = generate_secure_token()
         SecureLink.objects.create(
             token=token,
@@ -56,11 +58,12 @@ def generate_secure_link(order_id: str, link_type: str, target_email: str, expir
             target_email=target_email,
             expires_at=get_expiry(expiry_hours),
         )
-        frontend_url = getattr(settings, 'FRONTEND_URL', 'http://localhost:5173').rstrip('/')
+        
+        frontend_url = get_frontend_url()
         if link_type == 'form_fill':
             return f'{frontend_url}/dashboard/details/{order_id}?token={token}'
         elif link_type == 'script_review':
-            return f'{frontend_url}/dashboard/orders/{order_id}?token={token}'
+            return f'{frontend_url}/dashboard/scripts?order={order_id}&token={token}'
         return f'{frontend_url}?token={token}'
     except Exception as e:
         logger.error(f'Failed to generate secure link for order {order_id}: {e}')

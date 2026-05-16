@@ -74,7 +74,11 @@ class AdminCatalogListCreateView(APIView):
         qs = CatalogItem.objects.all().order_by('category', 'title')
         if category:
             qs = qs.filter(category=category)
-        return Response(CatalogItemSerializer(qs, many=True, context={'request': request}).data)
+        
+        from utils.pagination import StandardPagination
+        paginator = StandardPagination()
+        page = paginator.paginate_queryset(qs, request)
+        return paginator.get_paginated_response(CatalogItemSerializer(page, many=True, context={'request': request}).data)
 
     def post(self, request):
         from apps.accounts.models import Admin

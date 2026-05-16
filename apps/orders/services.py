@@ -16,6 +16,7 @@ from utils.email import (
     send_out_for_delivery_email, send_delivered_email,
     send_writer_assignment_email, send_writer_revision_email,
     send_admin_new_order_email, send_admin_assignment_rejected_email, send_admin_script_approved_email,
+    send_admin_script_auto_delivered_email,
 )
 
 logger = logging.getLogger('apps')
@@ -217,6 +218,19 @@ def create_order(data: dict, user=None) -> Order:
         order_id=order.id,
     )
 
+    # Notify all active admins
+    from apps.accounts.models import Admin
+    admins = Admin.objects.filter(is_active=True)
+    for admin in admins:
+        create_notification(
+            target_id=str(admin.id),
+            role='admin',
+            ntype='payment',
+            title='New Order Received',
+            message=f'A new order {order.id} has been placed by {order.customer_name}.',
+            order_id=order.id,
+        )
+
     logger.info(f'Order created: {order.id} for {order.customer_email}')
     return order
 
@@ -409,6 +423,40 @@ def auto_assign_writer(order_id: str, admin=None) -> 'WriterAssignment':
 
 
 @db_transaction.atomic
+def assign_order_to_writer(order_id: str, writer_id: str, admin) -> 'WriterAssignment':
+    """Admin manually assigns order to a specific writer."""
+    from apps.accounts.models import Writer
+    from apps.writers.models import WriterAssignment
+    
+    order = get_order_or_404(order_id)
+    try:
+        writer = Writer.objects.get(id=writer_id, status='active', is_active=True)
+    except Writer.DoesNotExist:
+        raise ValidationError('Writer not found or not active.')
+
+    # Close any existing pending/accepted assignments for this order
+    WriterAssignment.objects.filter(order=order, status__in=['pending', 'accepted']).update(status='cancelled')
+
+    assignment = WriterAssignment.objects.create(
+        order=order, writer=writer, status='pending', created_by=admin,
+    )
+
+    old_status = order.status
+    order.status = OrderStatus.ASSIGNED_TO_WRITER
+    order.writer = writer
+    order.assigned_at = timezone.now()
+    order.save(update_fields=['status', 'writer', 'assigned_at'])
+    _record_status_change(order, old_status, OrderStatus.ASSIGNED_TO_WRITER, admin.id, 'admin', f'Manually assigned to {writer.full_name}')
+
+    try:
+        send_writer_assignment_email(writer, order)
+    except Exception as e:
+        logger.error(f'Assignment email failed for {order_id}: {e}')
+
+    return assignment
+
+
+@db_transaction.atomic
 def reassign_order(order_id: str, exclude_writer_id: str, admin) -> 'WriterAssignment':
     """Admin manually re-assigns order, excluding the writer who declined."""
     from apps.accounts.models import Writer
@@ -465,6 +513,27 @@ def submit_script(order_id: str, content: str, writer_note: str, writer) -> Scri
         version_num=version_num, content=content, writer_note=writer_note,
     )
 
+    # Check for delayed submission on revisions
+    if order.status == OrderStatus.REVISION_REQUESTED:
+        from apps.writers.models import WriterAssignment
+        from django.conf import settings
+        from utils.email import send_admin_delayed_submission_email
+        
+        try:
+            assignment = WriterAssignment.objects.get(order=order, writer=writer, status='accepted')
+            if assignment.submission_due_at and timezone.now() > assignment.submission_due_at:
+                # It's a delayed submission!
+                writer.delayed_submissions_count += 1
+                writer.save(update_fields=['delayed_submissions_count'])
+                
+                try:
+                    admin_email = getattr(settings, 'ADMIN_NOTIFICATION_EMAIL', 'support@alanaatii.com')
+                    send_admin_delayed_submission_email(admin_email, order, writer)
+                except Exception as e:
+                    logger.error(f'Delayed submission email failed for {order_id}: {e}')
+        except Exception as e:
+            logger.error(f'Failed to process delay for {order_id}: {e}')
+
     old_status = order.status
     order.status = OrderStatus.CUSTOMER_REVIEW
     order.submitted_at = order.submitted_at or timezone.now()
@@ -512,16 +581,76 @@ def approve_script(order_id: str, user) -> Order:
         order.script_content = latest.content
 
     old_status = order.status
-    order.status = OrderStatus.APPROVED
-    order.approved_at = timezone.now()
-    order.save(update_fields=['status', 'approved_at', 'script_content'])
-    _record_status_change(order, old_status, OrderStatus.APPROVED, user.id, 'user', 'Customer approved script')
+    
+    if order.product_type == 'script':
+        order.status = OrderStatus.DELIVERED
+        order.approved_at = timezone.now()
+        order.save(update_fields=['status', 'approved_at', 'script_content'])
+        _record_status_change(order, old_status, OrderStatus.DELIVERED, user.id, 'user', 'Customer approved script (Auto-delivered)')
+        
+        try:
+            send_delivered_email(order, include_script=True)
+            
+            # Notify Admin
+            admin_email = getattr(settings, 'ADMIN_NOTIFICATION_EMAIL', 'support@alanaatii.com')
+            send_admin_script_auto_delivered_email(admin_email, order)
+            
+        except Exception as e:
+            logger.error(f'Script delivery emails failed for {order_id}: {e}')
+            
+        create_notification(
+            target_id=str(order.user.id) if order.user else order.customer_email,
+            role='user',
+            ntype='script',
+            title='Order Delivered!',
+            message=f'Your script for order {order.id} has been delivered to your email.',
+            order_id=order.id,
+        )
 
-    try:
-        admin_email = getattr(settings, 'ADMIN_NOTIFICATION_EMAIL', 'support@alanaatii.com')
-        send_admin_script_approved_email(admin_email, order)
-    except Exception as e:
-        logger.error(f'Script approved email failed for {order_id}: {e}')
+        # Notify admins that a script was auto-delivered
+        from apps.accounts.models import Admin
+        admins = Admin.objects.filter(is_active=True)
+        for admin in admins:
+            create_notification(
+                target_id=str(admin.id),
+                role='admin',
+                ntype='script',
+                title='Script Auto-Delivered',
+                message=f'Script for order {order.id} was approved and auto-delivered.',
+                order_id=order.id,
+            )
+    else:
+        order.status = OrderStatus.APPROVED
+        order.approved_at = timezone.now()
+        order.save(update_fields=['status', 'approved_at', 'script_content'])
+        _record_status_change(order, old_status, OrderStatus.APPROVED, user.id, 'user', 'Customer approved script')
+
+        try:
+            admin_email = getattr(settings, 'ADMIN_NOTIFICATION_EMAIL', 'support@alanaatii.com')
+            send_admin_script_approved_email(admin_email, order)
+        except Exception as e:
+            logger.error(f'Script approved email failed for {order_id}: {e}')
+        
+        # Notify admins that a script was approved
+        from apps.accounts.models import Admin
+        admins = Admin.objects.filter(is_active=True)
+        for admin in admins:
+            create_notification(
+                target_id=str(admin.id),
+                role='admin',
+                ntype='script',
+                title='Script Approved',
+                message=f'Customer has approved the script for order {order.id}.',
+                order_id=order.id,
+            )
+
+    # Mark the writer assignment as completed since the work is approved
+    if order.writer:
+        from apps.writers.models import WriterAssignment, AssignmentStatus
+        WriterAssignment.objects.filter(order=order, writer=order.writer, status=AssignmentStatus.ACCEPTED).update(
+            status=AssignmentStatus.COMPLETED,
+            responded_at=timezone.now()
+        )
 
     return order
 
@@ -557,6 +686,16 @@ def request_revision(order_id: str, feedback: str, user) -> Order:
             message=f'Customer has requested changes for order {order.id}.',
             order_id=order.id,
         )
+
+        # Give writer exactly 24 hours to resubmit
+        from apps.writers.models import WriterAssignment
+        try:
+            assignment = WriterAssignment.objects.get(order=order, writer=order.writer, status='accepted')
+            assignment.submission_due_at = timezone.now() + timezone.timedelta(hours=24)
+            assignment.save(update_fields=['submission_due_at'])
+        except Exception as e:
+            logger.error(f'Failed to set revision deadline for {order_id}: {e}')
+
     return order
 
 
@@ -598,6 +737,14 @@ def admin_update_order_status(order_id: str, new_status: str, admin, note: str =
             send_delivered_email(order)
     except Exception as e:
         logger.error(f'Status update email failed for {order_id}: {e}')
+
+    # If delivered, mark assignment as completed if not already
+    if new_status == OrderStatus.DELIVERED and order.writer:
+        from apps.writers.models import WriterAssignment, AssignmentStatus
+        WriterAssignment.objects.filter(order=order, writer=order.writer, status=AssignmentStatus.ACCEPTED).update(
+            status=AssignmentStatus.COMPLETED,
+            responded_at=timezone.now()
+        )
 
     return order
 

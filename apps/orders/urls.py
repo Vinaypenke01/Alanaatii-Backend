@@ -6,6 +6,7 @@ from .views import (
     WriterScriptSubmitView, WriterDraftView, WriterOrderListView, WriterOrderDetailView,
     AdminOrderListView, AdminOrderDetailView, AdminOrderStatusStatsView, AdminOrderStatusUpdateView,
     AdminOrderCancelView, AdminReassignOrderView, AdminOrderResendNotificationView,
+    AdminAssignWriterView, AdminScriptTrackingView,
     AdminPaymentListView, AdminPaymentVerifyView, AdminPaymentRejectView,
     AdminRefundListCreateView, AdminRefundUpdateView,
     AdminAnalyticsView, CouponValidateView,
@@ -35,6 +36,7 @@ urlpatterns = [
     path('admin/orders/<str:order_id>/status/', AdminOrderStatusUpdateView.as_view(), name='admin-order-status'),
     path('admin/orders/<str:order_id>/cancel/', AdminOrderCancelView.as_view(), name='admin-order-cancel'),
     path('admin/orders/<str:order_id>/reassign/', AdminReassignOrderView.as_view(), name='admin-order-reassign'),
+    path('admin/orders/<str:order_id>/assign-writer/', AdminAssignWriterView.as_view(), name='admin-order-assign-writer'),
     path('admin/orders/<str:order_id>/resend-notification/', AdminOrderResendNotificationView.as_view(), name='admin-order-resend-notification'),
 
     # Admin: payments
@@ -48,6 +50,7 @@ urlpatterns = [
 
     # Admin: analytics
     path('admin/analytics/', AdminAnalyticsView.as_view(), name='admin-analytics'),
+    path('admin/script-tracking-data/', AdminScriptTrackingView.as_view(), name='admin-script-tracking-data'),
 
     # Public: coupon validation
     path('coupons/validate/', CouponValidateView.as_view(), name='coupon-validate'),

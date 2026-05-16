@@ -18,7 +18,7 @@ from .serializers import (
     OrderCreateSerializer, OrderListSerializer, OrderDetailSerializer,
     TransactionSerializer, ScriptVersionSerializer, RefundSerializer,
     QuestionnaireSubmitSerializer, ScriptSubmitSerializer, RevisionRequestSerializer,
-    OrderStatusUpdateSerializer, RefundCreateSerializer,
+    OrderStatusUpdateSerializer, RefundCreateSerializer, ScriptTrackingSerializer,
 )
 from . import services
 
@@ -292,7 +292,11 @@ class AdminOrderListView(APIView):
         # Filtering
         status_filter = request.query_params.get('status')
         if status_filter and status_filter != 'all':
-            qs = qs.filter(status=status_filter)
+            if ',' in status_filter:
+                statuses = [s.strip() for s in status_filter.split(',')]
+                qs = qs.filter(status__in=statuses)
+            else:
+                qs = qs.filter(status=status_filter)
             
         product_type = request.query_params.get('product_type')
         if product_type and product_type != 'all':
@@ -403,6 +407,59 @@ class AdminOrderCancelView(APIView):
         return Response({'message': 'Order cancelled.', 'status': order.status})
 
 
+class AdminAssignWriterView(APIView):
+    permission_classes = [IsAuthenticated, IsAdminUser]
+
+    def post(self, request, order_id):
+        from apps.accounts.models import Admin
+        writer_id = request.data.get('writer_id')
+        if not writer_id:
+            return Response({'error': True, 'message': 'writer_id is required.'}, status=400)
+            
+        admin = Admin.objects.get(id=request.user.id)
+        assignment = services.assign_order_to_writer(order_id, writer_id, admin)
+        return Response({
+            'message': 'Order assigned successfully.',
+            'assignment_id': str(assignment.id)
+        })
+
+
+class AdminScriptTrackingView(APIView):
+    permission_classes = [IsAuthenticated, IsAdminUser]
+
+    def get(self, request):
+        qs = Order.objects.filter(
+            status__in=[
+                'assigned_to_writer', 
+                'accepted_by_writer', 
+                'revision_requested', 
+                'script_submitted', 
+                'customer_review',
+                'approved',
+                'under_writing'
+            ]
+        ).select_related('writer').order_by('delivery_date', 'created_at')
+
+        # Add any date filters if present
+        start_date = request.query_params.get('start_date')
+        if start_date:
+            qs = qs.filter(created_at__date__gte=start_date)
+        end_date = request.query_params.get('end_date')
+        if end_date:
+            qs = qs.filter(created_at__date__lte=end_date)
+
+        data = ScriptTrackingSerializer(qs, many=True).data
+
+        response_data = {
+            'awaiting_acceptance': [o for o in data if o['status'] == 'assigned_to_writer'],
+            'in_progress': [o for o in data if o['status'] in ['accepted_by_writer', 'revision_requested']],
+            'submitted': [o for o in data if o['status'] in ['script_submitted', 'customer_review']],
+            'approved': [o for o in data if o['status'] in ['approved', 'under_writing']]
+        }
+
+        return Response(response_data)
+
+
 class AdminReassignOrderView(APIView):
     permission_classes = [IsAuthenticated, IsAdminUser]
 
@@ -448,9 +505,20 @@ class AdminPaymentVerifyView(APIView):
 
     def post(self, request, transaction_id):
         from apps.accounts.models import Admin
-        bank_txn_id = request.data.get('bank_transaction_id')
+        bank_txn_id = request.data.get('bank_transaction_id', '').strip()
         if not bank_txn_id:
-            return Response({'error': True, 'message': 'bank_transaction_id is required.'}, status=400)
+            return Response({'error': True, 'message': 'Bank Reference Number (UTR) is required.'}, status=400)
+        
+        # Validation: Length check
+        if len(bank_txn_id) < 6:
+            return Response({'error': True, 'message': 'Invalid Bank Reference Number. It must be at least 6 characters.'}, status=400)
+        
+        if len(bank_txn_id) > 30:
+            return Response({'error': True, 'message': 'Invalid Bank Reference Number. Maximum length is 30 characters.'}, status=400)
+
+        # Validation: Uniqueness check (Duplicate UTR prevention)
+        if Transaction.objects.filter(bank_transaction_id__iexact=bank_txn_id, status='verified').exists():
+            return Response({'error': True, 'message': 'This Bank Reference Number (UTR) has already been used to verify another order.'}, status=400)
             
         admin = Admin.objects.get(id=request.user.id)
         order = services.verify_payment(str(transaction_id), bank_txn_id, admin)
@@ -520,17 +588,25 @@ class AdminAnalyticsView(APIView):
         from django.db.models import Count, Sum, Q
         from apps.writers.models import WriterAssignment
 
-        total_orders = Order.objects.count()
-        pending_orders = Order.objects.filter(status=OrderStatus.PAYMENT_PENDING).count()
-        completed_orders = Order.objects.filter(status=OrderStatus.DELIVERED).count()
-        cancelled_orders = Order.objects.filter(status=OrderStatus.CANCELLED).count()
-        total_revenue = Order.objects.filter(
-            transactions__status='verified'
-        ).aggregate(total=Sum('total_amount'))['total'] or 0
+        # Optimized aggregation: Get all counts in a single query if possible
+        # but for now, separate counts are fine if indexed.
+        stats = Order.objects.aggregate(
+            total=Count('id'),
+            pending=Count('id', filter=Q(status=OrderStatus.PAYMENT_PENDING)),
+            completed=Count('id', filter=Q(status=OrderStatus.DELIVERED)),
+            cancelled=Count('id', filter=Q(status=OrderStatus.CANCELLED)),
+            pending_scripts=Count('id', filter=Q(status__in=[
+                OrderStatus.ACCEPTED_BY_WRITER, OrderStatus.REVISION_REQUESTED
+            ]))
+        )
+
+        # Revenue optimization: Use Transaction model directly to avoid join overhead if possible
+        # or ensure distinct orders are summed.
+        total_revenue = Transaction.objects.filter(status='verified').aggregate(
+            total=Sum('amount')
+        )['total'] or 0
+
         pending_payments = Transaction.objects.filter(status='pending').count()
-        pending_scripts = Order.objects.filter(status__in=[
-            OrderStatus.ACCEPTED_BY_WRITER, OrderStatus.REVISION_REQUESTED
-        ]).count()
 
         orders_by_status = list(
             Order.objects.values('status').annotate(count=Count('id')).order_by('-count')
@@ -538,18 +614,24 @@ class AdminAnalyticsView(APIView):
         orders_by_type = list(
             Order.objects.values('product_type').annotate(count=Count('id')).order_by('-count')
         )
-        recent_orders = OrderListSerializer(
-            Order.objects.order_by('-created_at')[:10], many=True
-        ).data
+        
+        # Optimize recent orders fetch
+        recent_orders_qs = (
+            Order.objects
+            .select_related('paper', 'letter_theme', 'text_style', 'box', 'gift', 'script_package', 'writer')
+            .prefetch_related('assignments')
+            .order_by('-created_at')[:10]
+        )
+        recent_orders = OrderListSerializer(recent_orders_qs, many=True).data
 
         return Response({
-            'total_orders': total_orders,
-            'pending_orders': pending_orders,
-            'completed_orders': completed_orders,
-            'cancelled_orders': cancelled_orders,
+            'total_orders': stats['total'],
+            'pending_orders': stats['pending'],
+            'completed_orders': stats['completed'],
+            'cancelled_orders': stats['cancelled'],
             'total_revenue': float(total_revenue),
             'pending_payments_count': pending_payments,
-            'pending_scripts_count': pending_scripts,
+            'pending_scripts_count': stats['pending_scripts'],
             'orders_by_status': orders_by_status,
             'orders_by_product_type': orders_by_type,
             'recent_orders': recent_orders,

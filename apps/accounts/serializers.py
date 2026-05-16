@@ -207,7 +207,7 @@ class WriterSerializer(serializers.ModelSerializer):
             'id', 'full_name', 'email', 'phone', 'phone_alt',
             'address', 'languages', 'status', 'active_job_count', 
             'assigned_count', 'pending_response_count', 'active_scripts_count', 
-            'rejected_count', 'approved_count',
+            'rejected_count', 'approved_count', 'delayed_submissions_count',
             'created_at',
         ]
         read_only_fields = ['id', 'created_at', 'active_job_count']
@@ -305,7 +305,7 @@ class WriterProfileSerializer(serializers.ModelSerializer):
             'id', 'full_name', 'email', 'phone', 'phone_alt', 
             'address', 'languages', 'status', 'active_job_count',
             'assigned_count', 'pending_response_count', 'active_scripts_count', 
-            'rejected_count', 'approved_count'
+            'rejected_count', 'approved_count', 'delayed_submissions_count'
         ]
         read_only_fields = ['id', 'email']
 

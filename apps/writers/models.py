@@ -10,6 +10,8 @@ class AssignmentStatus(models.TextChoices):
     PENDING = 'pending', 'Pending Response'
     ACCEPTED = 'accepted', 'Accepted'
     DECLINED = 'declined', 'Declined'
+    COMPLETED = 'completed', 'Completed'
+    CANCELLED = 'cancelled', 'Cancelled'
 
 
 class WriterAssignment(models.Model):

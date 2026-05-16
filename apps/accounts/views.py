@@ -263,8 +263,12 @@ class AdminWriterListCreateView(APIView):
         search = request.query_params.get('search')
         if search:
             qs = qs.filter(full_name__icontains=search) | qs.filter(email__icontains=search)
-        serializer = WriterSerializer(qs, many=True)
-        return Response(serializer.data)
+        
+        from utils.pagination import StandardPagination
+        paginator = StandardPagination()
+        page = paginator.paginate_queryset(qs, request)
+        serializer = WriterSerializer(page, many=True)
+        return paginator.get_paginated_response(serializer.data)
 
     def post(self, request):
         admin = Admin.objects.get(id=request.user.id)

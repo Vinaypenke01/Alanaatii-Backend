@@ -22,18 +22,18 @@ def get_frontend_url():
     return url.rstrip('/')
 
 
-def send_email(to: str, subject: str, text_body: str, html_body: str = None):
+def send_email(to: str, subject: str, text_body: str, html_body: str = None, attachments: list = None):
     """
     Send a single email in the background via Resend API.
     """
     thread = threading.Thread(
         target=_send_email_sync,
-        args=(to, subject, text_body, html_body)
+        args=(to, subject, text_body, html_body, attachments)
     )
     thread.start()
 
 
-def _send_email_sync(to: str, subject: str, text_body: str, html_body: str = None):
+def _send_email_sync(to: str, subject: str, text_body: str, html_body: str = None, attachments: list = None):
     """
     Synchronous email sending via Resend SDK.
     """
@@ -46,6 +46,8 @@ def _send_email_sync(to: str, subject: str, text_body: str, html_body: str = Non
         }
         if html_body:
             params["html"] = html_body
+        if attachments:
+            params["attachments"] = attachments
             
         r = resend.Emails.send(params)
         logger.info(f'Email sent via Resend to {to}: {subject} | ID: {r.get("id")}')
@@ -209,18 +211,63 @@ def send_out_for_delivery_email(order):
     send_email(order.customer_email, subject, body)
 
 
-def send_delivered_email(order):
-    """Notify customer their order is delivered."""
+def send_delivered_email(order, include_script=False):
+    """Notify customer their order is delivered, or auto-deliver digital scripts."""
     subject = f'Delivered with Love – #{order.id} | Alanaatii'
-    body = (
-        f'Hi {order.customer_name},\n\n'
-        f'Your order #{order.id} has been delivered!\n\n'
-        f'We hope your letter brings joy to {order.recipient_name}.\n\n'
-        f'We would love to hear your feedback:\n'
-        f'{get_frontend_url()}/submit-review?order={order.id}\n\n'
-        f'With love,\nTeam Alanaatii'
-    )
-    send_email(order.customer_email, subject, body)
+    
+    html_body = None
+    attachments = None
+    
+    if include_script and order.script_content:
+        # For Script-Only products: beautifully format the script in the email
+        # and attach it as a simple text file.
+        script_formatted = order.script_content.replace('\n', '<br>')
+        
+        body = (
+            f'Hi {order.customer_name},\n\n'
+            f'Your luxury script (Order #{order.id}) is complete and delivered!\n\n'
+            f'We have included your full script below, and also attached it as a text file for your convenience.\n\n'
+            f'We would love to hear your feedback:\n'
+            f'{get_frontend_url()}/submit-review?order={order.id}\n\n'
+            f'With love,\nTeam Alanaatii'
+        )
+        
+        html_body = f"""
+        <div style="font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto;">
+            <p>Hi <strong>{order.customer_name}</strong>,</p>
+            <p>Your luxury script (Order #{order.id}) is complete and delivered!</p>
+            <p>We have included your full script below, and also attached it as a text file for your convenience.</p>
+            <hr style="border: 1px solid #eee; margin: 30px 0;" />
+            <h2 style="color: #6C40B5; text-align: center; font-family: 'Georgia', serif;">Your Script</h2>
+            <div style="background-color: #f9f9f9; padding: 25px; border-radius: 8px; font-size: 16px; line-height: 1.6; white-space: pre-wrap; font-family: 'Georgia', serif; border-left: 4px solid #6C40B5;">
+{script_formatted}
+            </div>
+            <hr style="border: 1px solid #eee; margin: 30px 0;" />
+            <p style="text-align: center;">
+                <a href="{get_frontend_url()}/submit-review?order={order.id}" style="background-color: #6C40B5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">Leave a Review</a>
+            </p>
+            <p style="text-align: center; color: #888; font-size: 14px; margin-top: 30px;">With love,<br>Team Alanaatii</p>
+        </div>
+        """
+        
+        attachments = [
+            {
+                "filename": f"Alanaatii_Script_{order.id}.txt",
+                "content": list(order.script_content.encode('utf-8'))
+            }
+        ]
+        
+    else:
+        body = (
+            f'Hi {order.customer_name},\n\n'
+            f'Your order #{order.id} has been delivered!\n\n'
+            f'We hope your letter brings joy to {order.recipient_name}.\n\n'
+            f'We would love to hear your feedback:\n'
+            f'{get_frontend_url()}/submit-review?order={order.id}\n\n'
+            f'With love,\nTeam Alanaatii'
+        )
+
+    send_email(order.customer_email, subject, body, html_body=html_body, attachments=attachments)
 
 
 # ─── Writer Emails ────────────────────────────────────────────────────────────
@@ -236,7 +283,7 @@ def send_writer_assignment_email(writer, order):
         f'Delivery Date: {order.delivery_date}\n'
         f'Relation: {order.relation or "Not specified"}\n\n'
         f'Please log in to your writer dashboard to accept or decline:\n'
-        f'{get_frontend_url()}/writer/assignments\n\n'
+        f'{get_frontend_url()}/writer/requests\n\n'
         f'Team Alanaatii'
     )
     send_email(writer.email, subject, body)
@@ -249,7 +296,7 @@ def send_writer_revision_email(writer, order):
         f'Hi {writer.full_name},\n\n'
         f'The customer has requested a revision for Order #{order.id}.\n\n'
         f'Their feedback:\n{order.revision_note or "Please check your dashboard."}\n\n'
-        f'Log in to revise: {get_frontend_url()}/writer\n\n'
+        f'Log in to revise: {get_frontend_url()}/writer/revisions\n\n'
         f'Team Alanaatii'
     )
     send_email(writer.email, subject, body)
@@ -335,6 +382,36 @@ def send_admin_script_approved_email(admin_email: str, order):
         f'Recipient: {order.recipient_name}\n\n'
         f'Please move the order to Under Writing status:\n'
         f'{get_frontend_url()}/admin/orders\n\n'
+        f'Alanaatii Admin System'
+    )
+    send_email(admin_email, subject, body)
+
+
+def send_admin_script_auto_delivered_email(admin_email: str, order):
+    """Notify admin that a script-only product was auto-delivered."""
+    subject = f'Script Auto-Delivered – Order #{order.id} Completed'
+    body = (
+        f'The customer has approved the script for Order #{order.id}.\n\n'
+        f'Because this is a Script-Only product, it has been automatically marked as DELIVERED '
+        f'and the final script was emailed to the customer.\n\n'
+        f'Customer: {order.customer_name}\n'
+        f'Recipient: {order.recipient_name}\n\n'
+        f'No further action is required for this order.\n'
+        f'View Order: {get_frontend_url()}/admin/orders\n\n'
+        f'Alanaatii Admin System'
+    )
+    send_email(admin_email, subject, body)
+
+
+def send_admin_delayed_submission_email(admin_email: str, order, writer):
+    """Notify admin that a writer submitted a script past the 24-hour revision deadline."""
+    subject = f'⚠️ Delayed Submission Alert – Writer {writer.full_name}'
+    body = (
+        f'Writer {writer.full_name} ({writer.email}) has submitted a revised script for Order #{order.id} past the 24-hour deadline.\n\n'
+        f'Customer: {order.customer_name}\n'
+        f'Delayed Submissions Count for this writer: {writer.delayed_submissions_count}\n\n'
+        f'Please review the writer\'s performance in the admin dashboard:\n'
+        f'{get_frontend_url()}/admin/writers\n\n'
         f'Alanaatii Admin System'
     )
     send_email(admin_email, subject, body)

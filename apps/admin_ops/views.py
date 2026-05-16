@@ -163,7 +163,9 @@ class MandatoryQuestionView(APIView):
 
     def get(self, request):
         qs = MandatoryQuestion.objects.all().order_by('display_order')
-        return Response(MandatoryQuestionSerializer(qs, many=True).data)
+        paginator = StandardPagination()
+        page = paginator.paginate_queryset(qs, request)
+        return paginator.get_paginated_response(MandatoryQuestionSerializer(page, many=True).data)
 
     def post(self, request):
         from apps.accounts.models import Admin
@@ -202,7 +204,10 @@ class CouponView(APIView):
     permission_classes = [IsAuthenticated, IsAdminUser]
 
     def get(self, request):
-        return Response(CouponSerializer(Coupon.objects.all().order_by('-created_at'), many=True).data)
+        qs = Coupon.objects.all().order_by('-created_at')
+        paginator = StandardPagination()
+        page = paginator.paginate_queryset(qs, request)
+        return paginator.get_paginated_response(CouponSerializer(page, many=True).data)
 
     def post(self, request):
         from apps.accounts.models import Admin

@@ -175,6 +175,7 @@ class Writer(AbstractBaseUser):
     address = models.TextField(blank=True, null=True)
     languages = models.JSONField(default=list, help_text='Array of language skills e.g. ["Telugu","English"]')
     status = models.CharField(max_length=10, choices=WriterStatus.choices, default=WriterStatus.ACTIVE)
+    delayed_submissions_count = models.IntegerField(default=0, help_text='Number of times writer submitted a script late.')
     created_by = models.ForeignKey(
         'Admin', on_delete=models.SET_NULL, null=True, blank=True, related_name='created_writers'
     )

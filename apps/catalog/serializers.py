@@ -6,9 +6,9 @@ class CatalogItemSerializer(serializers.ModelSerializer):
     class Meta:
         model = CatalogItem
         fields = [
-            'id', 'category', 'title', 'price', 'description', 'image_url', 
-            'is_active', 'requires_custom_length', 'fits_all_boxes', 
-            'compatible_boxes', 'created_at'
+            'id', 'category', 'title', 'price', 'price_per_unit', 'pricing_unit', 
+            'description', 'image_url', 'is_active', 'requires_custom_length', 
+            'fits_all_boxes', 'compatible_boxes', 'created_at'
         ]
         read_only_fields = ['id', 'created_at']
 
