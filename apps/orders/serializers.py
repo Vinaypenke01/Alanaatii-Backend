@@ -32,6 +32,7 @@ class OrderCreateSerializer(serializers.ModelSerializer):
             'address', 'city', 'pincode', 'message_content', 'special_notes', 'paper_quantity',
             'delivery_date', 'coupon_code', 'letter_theme', 'text_style', 'paper', 'box', 'gift', 'script_package'
         ]
+        read_only_fields = ['id']
 
 
 class OrderListSerializer(serializers.ModelSerializer):
