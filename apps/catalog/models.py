@@ -16,18 +16,11 @@ class CatalogCategory(models.TextChoices):
     LETTER_THEME = 'letter_theme', 'Letter Theme'
 
 
-class PricingUnit(models.TextChoices):
-    PAGE = 'page', 'Per Page/Letter'
-    FEET = 'feet', 'Per Feet'
-
-
 class CatalogItem(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     category = models.CharField(max_length=20, choices=CatalogCategory.choices)
     title = models.CharField(max_length=100)
     price = models.DecimalField(max_digits=10, decimal_places=2, help_text="Base price of the item")
-    price_per_unit = models.DecimalField(max_digits=10, decimal_places=2, default=0.00, help_text="Extra price per unit (e.g. per feet) if applicable")
-    pricing_unit = models.CharField(max_length=10, choices=PricingUnit.choices, default=PricingUnit.PAGE)
     description = models.TextField(blank=True, null=True)
     image_url = models.ImageField(upload_to='catalog/', blank=True, null=True)
     is_active = models.BooleanField(default=True)

@@ -204,10 +204,10 @@ class WriterSerializer(serializers.ModelSerializer):
     class Meta:
         model = Writer
         fields = [
-            'id', 'full_name', 'email', 'phone', 'phone_alt',
+            'id', 'full_name', 'email', 'phone', 'phone_alt', 
             'address', 'languages', 'status', 'active_job_count', 
             'assigned_count', 'pending_response_count', 'active_scripts_count', 
-            'rejected_count', 'approved_count', 'delayed_submissions_count',
+            'pending_revisions_count', 'rejected_count', 'approved_count', 'delayed_submissions_count',
             'created_at',
         ]
         read_only_fields = ['id', 'created_at', 'active_job_count']
@@ -232,8 +232,16 @@ class WriterSerializer(serializers.ModelSerializer):
                 OrderStatus.OUT_FOR_DELIVERY,
                 OrderStatus.DELIVERED,
                 OrderStatus.CANCELLED,
-                OrderStatus.REFUNDED
+                OrderStatus.REFUNDED,
+                OrderStatus.REVISION_REQUESTED
             ]
+        ).count()
+
+    def get_pending_revisions_count(self, obj):
+        from apps.orders.models import OrderStatus
+        return obj.assignments.filter(
+            status='accepted',
+            order__status=OrderStatus.REVISION_REQUESTED
         ).count()
 
     def get_rejected_count(self, obj):
@@ -305,7 +313,7 @@ class WriterProfileSerializer(serializers.ModelSerializer):
             'id', 'full_name', 'email', 'phone', 'phone_alt', 
             'address', 'languages', 'status', 'active_job_count',
             'assigned_count', 'pending_response_count', 'active_scripts_count', 
-            'rejected_count', 'approved_count', 'delayed_submissions_count'
+            'pending_revisions_count', 'rejected_count', 'approved_count', 'delayed_submissions_count'
         ]
         read_only_fields = ['id', 'email']
 
@@ -326,8 +334,16 @@ class WriterProfileSerializer(serializers.ModelSerializer):
                 OrderStatus.OUT_FOR_DELIVERY,
                 OrderStatus.DELIVERED,
                 OrderStatus.CANCELLED,
-                OrderStatus.REFUNDED
+                OrderStatus.REFUNDED,
+                OrderStatus.REVISION_REQUESTED
             ]
+        ).count()
+
+    def get_pending_revisions_count(self, obj):
+        from apps.orders.models import OrderStatus
+        return obj.assignments.filter(
+            status='accepted',
+            order__status=OrderStatus.REVISION_REQUESTED
         ).count()
 
     def get_rejected_count(self, obj):

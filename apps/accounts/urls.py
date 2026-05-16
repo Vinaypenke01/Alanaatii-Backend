@@ -9,7 +9,7 @@ from .views import (
     WriterProfileView,
     AdminWriterListCreateView, AdminWriterDetailView,
     AdminManagementView,
-    LogoutView,
+    LogoutView, SidebarStatsView,
 )
 
 urlpatterns = [
@@ -56,4 +56,6 @@ urlpatterns = [
 
     # Admin: admin management
     path('admin/admins/', AdminManagementView.as_view(), name='admin-admin-create'),
+    # Global stats
+    path('auth/sidebar-stats/', SidebarStatsView.as_view(), name='sidebar-stats'),
 ]

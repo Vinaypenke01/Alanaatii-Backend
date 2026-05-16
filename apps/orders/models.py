@@ -97,8 +97,6 @@ class Order(models.Model):
     special_notes = models.TextField(blank=True, null=True)
     express_script = models.BooleanField(default=False)
     custom_letter_length = models.CharField(max_length=50, blank=True, null=True, help_text='Custom length/quantity if required')
-    pricing_unit = models.CharField(max_length=10, default='page', help_text='Unit used for calculation (page/feet)')
-    unit_price_snapshot = models.DecimalField(max_digits=10, decimal_places=2, default=0, help_text='Price per unit at time of order')
 
     # Delivery details
     address = models.TextField(blank=True, null=True)

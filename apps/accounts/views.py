@@ -352,3 +352,81 @@ class LogoutView(APIView):
             pass  # Token not tracked or already blacklisted — treat as logged out
         return Response({'message': 'Logged out successfully.'})
 
+
+# ─── Sidebar Stats ────────────────────────────────────────────────────────────
+class SidebarStatsView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        try:
+            user = request.user
+            data = {}
+            
+            # Robust Role Detection
+            role = 'user'
+            if hasattr(user, 'role'):
+                role = 'admin'
+            elif hasattr(user, 'status'):
+                role = 'writer'
+            else:
+                role = 'user'
+
+            if role == 'user':
+                from apps.orders.models import Order, OrderStatus
+                orders = Order.objects.filter(user=user)
+                data = {
+                    'required_details': orders.filter(status=OrderStatus.AWAITING_DETAILS).count(),
+                    'script_review': orders.filter(status=OrderStatus.CUSTOMER_REVIEW).count(),
+                }
+            elif role == 'writer':
+                from apps.writers.models import WriterAssignment
+                from apps.orders.models import OrderStatus
+                
+                assignments = WriterAssignment.objects.filter(writer=user)
+                data = {
+                    'pending_requests': assignments.filter(status='pending').count(),
+                    'active_writing': assignments.filter(
+                        status='accepted', 
+                        order__status=OrderStatus.ACCEPTED_BY_WRITER
+                    ).count(),
+                    'pending_revisions': assignments.filter(
+                        status='accepted',
+                        order__status=OrderStatus.REVISION_REQUESTED
+                    ).count(),
+                }
+            elif role == 'admin':
+                from apps.orders.models import Order, OrderStatus, Refund, Transaction
+                from apps.admin_ops.models import SupportMessage
+                
+                data = {
+                    'pending_payments': Transaction.objects.filter(status='pending').count(),
+                    'pending_scripts': Order.objects.filter(status__in=[
+                        OrderStatus.ACCEPTED_BY_WRITER, OrderStatus.REVISION_REQUESTED
+                    ]).count(),
+                    'pending_support': SupportMessage.objects.filter(status='new').count(),
+                    'pending_refunds': Refund.objects.filter(status='pending').count(),
+                    'pending_orders': Order.objects.exclude(status__in=[
+                        OrderStatus.DELIVERED, 
+                        OrderStatus.OUT_FOR_DELIVERY,
+                        OrderStatus.CANCELLED,
+                        OrderStatus.PAYMENT_PENDING,  # Assuming pending payments are handled separately
+                        OrderStatus.PAYMENT_REJECTED
+                    ]).count(),
+                    'orders_by_type': {
+                        'letter': Order.objects.filter(product_type='letter').count(),
+                        'letter_paper': Order.objects.filter(product_type='letterPaper').count(),
+                        'script': Order.objects.filter(product_type='script').count(),
+                    }
+                }
+            
+            return Response(data)
+        except Exception as e:
+            import traceback
+            print(f"DEBUG SidebarStatsError: {str(e)}")
+            print(traceback.format_exc())
+            return Response({
+                "error": True, 
+                "message": str(e),
+                "traceback": traceback.format_exc() if 'localhost' in request.get_host() else None
+            }, status=500)
+

@@ -81,7 +81,10 @@ def calculate_order_total(data: dict) -> dict:
         breakdown['pincode_fee'] = get_pincode_fee(data.get('pincode', ''))
 
     else:
-        breakdown['base_price'] = get_price(data.get('letter_theme'))
+        letter_price = get_price(data.get('letter_theme'))
+        qty = int(data.get('custom_letter_length') or 1)
+        breakdown['base_price'] = letter_price * qty
+        
         breakdown['style_price'] = get_price(data.get('text_style'))
         breakdown['box_price'] = get_price(data.get('box'))
         gift_id = data.get('gift')
@@ -695,6 +698,33 @@ def request_revision(order_id: str, feedback: str, user) -> Order:
             assignment.save(update_fields=['submission_due_at'])
         except Exception as e:
             logger.error(f'Failed to set revision deadline for {order_id}: {e}')
+
+        # REVISION LIMIT LOGIC (3rd request / 3 versions already submitted)
+        version_count = order.script_versions.count()
+        if version_count >= 3:
+            try:
+                from utils.email import send_admin_revision_limit_reached_email
+                admin_email = getattr(settings, 'ADMIN_NOTIFICATION_EMAIL', 'support@alanaatii.com')
+                send_admin_revision_limit_reached_email(admin_email, order, order.writer)
+                
+                # Flag in internal notes
+                order.internal_notes = (order.internal_notes or "") + f"\n[SYSTEM] Revision limit reached (v{version_count}). Admin reassignment required."
+                order.save(update_fields=['internal_notes'])
+
+                # Notify all active admins
+                from apps.accounts.models import Admin
+                admins = Admin.objects.filter(is_active=True)
+                for admin in admins:
+                    create_notification(
+                        target_id=str(admin.id),
+                        role='admin',
+                        ntype='script',
+                        title='REVISION LIMIT REACHED',
+                        message=f'Order {order.id} has reached the 3-submission limit. Reassignment required.',
+                        order_id=order.id,
+                    )
+            except Exception as e:
+                logger.error(f'Failed to process revision limit for {order_id}: {e}')
 
     return order
 

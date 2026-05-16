@@ -182,6 +182,7 @@ class TransactionSerializer(serializers.ModelSerializer):
 
 class ScriptVersionSerializer(serializers.ModelSerializer):
     writer_name = serializers.SerializerMethodField()
+    revision_request = serializers.SerializerMethodField()
 
     class Meta:
         model = ScriptVersion
@@ -189,6 +190,20 @@ class ScriptVersionSerializer(serializers.ModelSerializer):
 
     def get_writer_name(self, obj):
         return obj.writer.full_name if obj.writer else "System"
+
+    def get_revision_request(self, obj):
+        # Version 1 is the initial submission, so it has no revision request
+        if obj.version_num <= 1:
+            return None
+        
+        # Find the most recent 'revision_requested' history record created before this version
+        history = OrderStatusHistory.objects.filter(
+            order=obj.order,
+            new_status=OrderStatus.REVISION_REQUESTED,
+            created_at__lt=obj.created_at
+        ).order_by('-created_at').first()
+        
+        return history.note if history else None
 
 
 class OrderStatusHistorySerializer(serializers.ModelSerializer):

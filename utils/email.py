@@ -206,6 +206,8 @@ def send_out_for_delivery_email(order):
         f'Tracking ID: {order.tracking_id or "Will be updated shortly"}\n'
         f'Estimated Arrival: {order.est_arrival or "As per schedule"}\n\n'
         f'Track your order: {get_frontend_url()}/dashboard/orders/{order.id}\n\n'
+        f'We would love to hear your experience with Alanaatii so far:\n'
+        f'{get_frontend_url()}/submit-review?order={order.id}\n\n'
         f'With love,\nTeam Alanaatii'
     )
     send_email(order.customer_email, subject, body)
@@ -434,3 +436,16 @@ def send_otp_email(to_email: str, code: str, purpose: str, role: str = 'admin'):
         f'Alanaatii System'
     )
     send_email(to_email, subject, body)
+def send_admin_revision_limit_reached_email(admin_email: str, order, writer):
+    """Notify admin that a script has reached the 2-revision limit (3rd submission requested)."""
+    subject = f'⚠️ REVISION LIMIT REACHED – Order #{order.id}'
+    body = (
+        f'The customer for Order #{order.id} has requested a revision for the 3rd time.\n\n'
+        f'Current Writer: {writer.full_name} ({writer.email})\n'
+        f'Customer Feedback: {order.revision_note}\n\n'
+        f'As per policy, the script has been flagged for reassignment to another writer.\n'
+        f'Please reassign the order here:\n'
+        f'{get_frontend_url()}/admin/orders\n\n'
+        f'Alanaatii Admin System'
+    )
+    send_email(admin_email, subject, body)

@@ -222,14 +222,19 @@ class WriterOrderDetailView(APIView):
         from apps.writers.models import WriterAssignment
         # Verify this writer is assigned to this order
         try:
-            assignment = WriterAssignment.objects.get(
-                order_id=order_id, writer=request.user, status='accepted'
-            )
+            assignment = WriterAssignment.objects.filter(
+                order_id=order_id, writer=request.user, 
+                status__in=['pending', 'accepted', 'completed']
+            ).first()
+            if not assignment:
+                raise WriterAssignment.DoesNotExist()
         except WriterAssignment.DoesNotExist:
             return Response({'error': True, 'message': 'Access denied or assignment not found.'}, status=403)
         
         data = OrderDetailSerializer(assignment.order).data
         data['submission_due_at'] = assignment.submission_due_at
+        data['assignment_status'] = assignment.status
+        data['assignment_id'] = str(assignment.id)
         return Response(data)
 
 
@@ -585,9 +590,9 @@ class AdminAnalyticsView(APIView):
     permission_classes = [IsAuthenticated, IsAdminUser]
 
     def get(self, request):
-        from django.db.models import Count, Sum, Q
-        from apps.writers.models import WriterAssignment
-
+        from apps.admin_ops.models import SupportMessage
+        from apps.orders.models import Refund
+        
         # Optimized aggregation: Get all counts in a single query if possible
         # but for now, separate counts are fine if indexed.
         stats = Order.objects.aggregate(
@@ -607,11 +612,15 @@ class AdminAnalyticsView(APIView):
         )['total'] or 0
 
         pending_payments = Transaction.objects.filter(status='pending').count()
+        
+        # New Action Counts
+        support_new = SupportMessage.objects.filter(status='new').count()
+        refunds_pending = Refund.objects.filter(status='pending').count()
 
-        orders_by_status = list(
+        orders_by_status_qs = list(
             Order.objects.values('status').annotate(count=Count('id')).order_by('-count')
         )
-        orders_by_type = list(
+        orders_by_type_qs = list(
             Order.objects.values('product_type').annotate(count=Count('id')).order_by('-count')
         )
         
@@ -626,14 +635,13 @@ class AdminAnalyticsView(APIView):
 
         return Response({
             'total_orders': stats['total'],
-            'pending_orders': stats['pending'],
-            'completed_orders': stats['completed'],
-            'cancelled_orders': stats['cancelled'],
             'total_revenue': float(total_revenue),
-            'pending_payments_count': pending_payments,
-            'pending_scripts_count': stats['pending_scripts'],
-            'orders_by_status': orders_by_status,
-            'orders_by_product_type': orders_by_type,
+            'pending_payments': pending_payments,
+            'pending_support': support_new,
+            'pending_refunds': refunds_pending,
+            'pending_scripts': stats['pending_scripts'],
+            'orders_by_status': {s['status']: s['count'] for s in orders_by_status_qs},
+            'orders_by_type': {t['product_type']: t['count'] for t in orders_by_type_qs},
             'recent_orders': recent_orders,
         })
 
